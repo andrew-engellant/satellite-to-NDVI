@@ -84,10 +84,20 @@ red[0,1500:2200,1500:2200].rio.to_raster("red_subset.tif")
 image_path = "raster_images/red_subset.tif"
 red_raster = rioxarray.open_rasterio(image_path)
 
-print(red_raster.rio.crs)
+print(red_raster.rio.crs.to_epsg()) # Check the CRS
 print(red_raster.rio.nodata)
 print(red_raster.rio.bounds())
 print(red_raster.rio.width)
 print(red_raster.rio.height)
 
+red_raster.plot(robust=True)
+plt.show()
+
+# Reproject the raster to EPSG:4326 (longitude, latitude)
+red_raster_geo = red_raster.rio.reproject("EPSG:4326")
+
+# Plot the reprojected raster
+red_raster_geo.plot(robust=True)
+plt.title("Raster Aligned with Longitude and Latitude")
+plt.show()
 
