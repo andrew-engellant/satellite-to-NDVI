@@ -101,3 +101,5 @@ red_raster_geo.plot(robust=True)
 plt.title("Raster Aligned with Longitude and Latitude")
 plt.show()
 
+# Stitch these two rasters together
+

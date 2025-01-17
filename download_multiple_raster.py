@@ -37,19 +37,44 @@ for scene in items:
     print(f"ID: {scene.id}")
     print(f"Date: {scene.datetime}")
     print(f"Cloud Cover: {scene.properties['eo:cloud_cover']}")
-    assets = scene.assets # Access the assets for the scene
-    red_band_url = assets['red'].href # Grab URL for the red band
-    rasters.append(rioxarray.open_rasterio(red_band_url)) # Open the raster
     
-    #TODO: # Add code to download the nir band
+    assets = scene.assets # Access the assets for the scene
+    
+    # Load the Red band
+    red_band_url = assets['red'].href # Grab URL for the red band
+    red_band = rioxarray.open_rasterio(red_band_url) # Open the raster
+    
+    # Load the NIR band
+    nir_band_url = assets['nir'].href # Grab URL for the nir band
+    nir_band = rioxarray.open_rasterio(nir_band_url)    
+    
+    # Ensure the two rasters align
+    red_band, nir_band = xr.align(red_band, nir_band)
+    
+    # Calculate NDVI
+    ndvi = (nir_band - red_band) / (nir_band + red_band)
+    
+    # Add metadata to the NDVI raster
+    ndvi = ndvi.rio.write_crs(red_band.rio.crs, inplace=True)
+    ndvi.attrs['long_name'] = 'Normalized Difference Vegetation Index (NDVI)'
+    ndvi.attrs['units'] = 'None'
+    
+    # Add the NDVI raster to the list
+    rasters.append(ndvi)
+    
+    
 
 merged_raster = rioxarray.merge.merge_arrays(rasters)
+# Write CRS explicitly (if not already set)
+merged_raster = merged_raster.rio.write_crs(rasters[0].rio.crs)
 
+# Reproject to EPSG:4326
 merged_reprojected = merged_raster.rio.reproject("EPSG:4326")
+
 
 # Plot the reprojected raster with cartopy
 fig, ax = plt.subplots(figsize=(12, 8), subplot_kw={"projection": ccrs.PlateCarree()})
-merged_reprojected.plot(ax=ax, robust=True, cmap="Reds", transform=ccrs.PlateCarree())
+merged_reprojected.plot(ax=ax, robust=True, transform=ccrs.PlateCarree())
 
 # Add gridlines and labels
 gl = ax.gridlines(draw_labels=True, crs=ccrs.PlateCarree(), alpha=0.5)
