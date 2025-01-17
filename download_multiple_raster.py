@@ -32,6 +32,10 @@ search.matched() # Check for how many scenes match our search criteria
 # 2 Scenes matched
 items = search.item_collection()
 
+# Convert mso_county_box to a GeoDataFrame for clipping
+mso_county_gdf = gpd.GeoDataFrame({'geometry': [mso_county_box]}, crs="EPSG:4326")
+mso_county_geojson = mapping(mso_county_box)  # Convert the polygon to GeoJSON format
+
 rasters = [] # Create an empty list to store the rasters
 for scene in items:
     print(f"ID: {scene.id}")
@@ -43,10 +47,16 @@ for scene in items:
     # Load the Red band
     red_band_url = assets['red'].href # Grab URL for the red band
     red_band = rioxarray.open_rasterio(red_band_url) # Open the raster
+
+    # Crop the Red band to the MSO county box
+    red_band = red_band.rio.clip([mso_county_geojson], crs="EPSG:4326") 
     
     # Load the NIR band
     nir_band_url = assets['nir'].href # Grab URL for the nir band
     nir_band = rioxarray.open_rasterio(nir_band_url)    
+    
+    # Crop the NIR band to the MSO county box
+    nir_band = nir_band.rio.clip([mso_county_geojson], crs="EPSG:4326")
     
     # Ensure the two rasters align
     red_band, nir_band = xr.align(red_band, nir_band)
@@ -71,6 +81,8 @@ merged_raster = merged_raster.rio.write_crs(rasters[0].rio.crs)
 # Reproject to EPSG:4326
 merged_reprojected = merged_raster.rio.reproject("EPSG:4326")
 
+# Save the reprojected raster
+# merged_reprojected.rio.to_raster("raster_images/merged_reprojected.tif")
 
 # Plot the reprojected raster with cartopy
 fig, ax = plt.subplots(figsize=(12, 8), subplot_kw={"projection": ccrs.PlateCarree()})
