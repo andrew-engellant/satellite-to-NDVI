@@ -1,41 +1,8 @@
-import requests
-
-# Replace with your EROS credentials
-username = "ae158765"
-password = "Ace0324201!@"
-
-auth_url = "https://espa.cr.usgs.gov/api"
-response = requests.post(auth_url, json={"username": username, "password": password})
-
-if response.status_code == 200:
-    token = response.json()["token"]
-    print("Authentication successful!")
-else:
-    print("Authentication failed:", response.text)
-
-print(response.status_code)
-
-
-from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
-
-api = SentinelAPI(username, password)
-footprint = geojson_to_wkt(read_geojson('search_polygon.geojson'))
-products = api.query(footprint,
-                     producttype='SLC',
-                     orbitdirection='ASCENDING',
-                     limit=10)
-api.download_all(products)
-
-
-
-
-
 ## AWS Sentinel-2 Collection 2A Intro
 from pystac_client import Client
-from shapely.geometry import Point, Polygon
+from shapely.geometry import Point
 import rioxarray
 import geopandas as gpd
-import matplotlib
 
 api_url = "https://earth-search.aws.element84.com/v1"
 
