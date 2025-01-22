@@ -5,6 +5,8 @@ import rioxarray
 import xarray as xr
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
+from shapely.geometry import mapping
+import geopandas as gpd
 
 # Load missoula county geometry
 mso_county_box = Polygon([
@@ -14,6 +16,8 @@ mso_county_box = Polygon([
     (-114.9, 47.7),  # Upper left
     (-114.9, 46.6)  # Back to lower left to close the polygon
 ])
+
+
 
  # Initialize the client
 api_url = "https://earth-search.aws.element84.com/v1"
@@ -33,7 +37,7 @@ search.matched() # Check for how many scenes match our search criteria
 items = search.item_collection()
 
 # Convert mso_county_box to a GeoDataFrame for clipping
-mso_county_gdf = gpd.GeoDataFrame({'geometry': [mso_county_box]}, crs="EPSG:4326")
+mso_county_gdf = gpd.GeoDataFrame({'geometry': [mso_county_box]}, crs="EPSG:32611")
 mso_county_geojson = mapping(mso_county_box)  # Convert the polygon to GeoJSON format
 
 rasters = [] # Create an empty list to store the rasters
@@ -49,14 +53,14 @@ for scene in items:
     red_band = rioxarray.open_rasterio(red_band_url) # Open the raster
 
     # Crop the Red band to the MSO county box
-    red_band = red_band.rio.clip([mso_county_geojson], crs="EPSG:4326") 
+    red_band = red_band.rio.clip([mso_county_geojson], crs="EPSG:32611") 
     
     # Load the NIR band
     nir_band_url = assets['nir'].href # Grab URL for the nir band
     nir_band = rioxarray.open_rasterio(nir_band_url)    
     
     # Crop the NIR band to the MSO county box
-    nir_band = nir_band.rio.clip([mso_county_geojson], crs="EPSG:4326")
+    nir_band = nir_band.rio.clip([mso_county_geojson], crs="EPSG:32611")
     
     # Ensure the two rasters align
     red_band, nir_band = xr.align(red_band, nir_band)
@@ -78,8 +82,8 @@ merged_raster = rioxarray.merge.merge_arrays(rasters)
 # Write CRS explicitly (if not already set)
 merged_raster = merged_raster.rio.write_crs(rasters[0].rio.crs)
 
-# Reproject to EPSG:4326
-merged_reprojected = merged_raster.rio.reproject("EPSG:4326")
+# Reproject to EPSG:32611
+merged_reprojected = merged_raster.rio.reproject("EPSG:32611")
 
 # Save the reprojected raster
 # merged_reprojected.rio.to_raster("raster_images/merged_reprojected.tif")

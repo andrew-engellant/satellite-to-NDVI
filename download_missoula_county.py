@@ -93,8 +93,8 @@ print(red_raster.rio.height)
 red_raster.plot(robust=True)
 plt.show()
 
-# Reproject the raster to EPSG:4326 (longitude, latitude)
-red_raster_geo = red_raster.rio.reproject("EPSG:4326")
+# Reproject the raster to EPSG:32611 (longitude, latitude)
+red_raster_geo = red_raster.rio.reproject("EPSG:32611")
 
 # Plot the reprojected raster
 red_raster_geo.plot(robust=True)
