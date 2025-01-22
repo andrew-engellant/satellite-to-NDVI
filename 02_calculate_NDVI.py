@@ -69,6 +69,9 @@ def create_mosaic(band_name, output_path, target_crs="EPSG:32611"):
     # Merge the rasters
     mosaic = merge_arrays(raster_list)
     
+    # Compute the mosaic to load it into memory
+    mosaic = mosaic.compute()
+
     # Reproject the mosaic to ensure CRS consistency
     mosaic = mosaic.rio.reproject(target_crs)
     
@@ -113,51 +116,52 @@ for date in dates:
             # Make sure RED and NIR bands align
             red_band_masked, nir_band_masked = xr.align(red_band_masked, nir_band_masked)
             
-            # Calculate NDVI
             ndvi = xr.where(
-                (nir_band_masked + red_band_masked) != 0,
-                (nir_band_masked - red_band_masked) / (nir_band_masked + red_band_masked),
-                0
+                ~xr.ufuncs.isnan(nir_band_masked) & ~xr.ufuncs.isnan(red_band_masked),
+                xr.where(
+                    (nir_band_masked + red_band_masked) > 0,
+                    (nir_band_masked - red_band_masked) / (nir_band_masked + red_band_masked),
+                    0  # Assign 0 where the denominator is 0
+                ),
+                np.nan  # Assign NaN if either NIR or Red is NaN
             )
+            
+            ndvi = ndvi.rio.write_crs(red_band_masked.rio.crs) # Ensure the NDVI raster has a CRS
             
             # Save individual NDVI raster
             output_file = f"{output_path}/NDVI_{scene.id}.tif"
             ndvi.rio.to_raster(output_file)
             print(f"Saved NDVI raster to {output_file}")
                 
+        
+        create_mosaic("NDVI", output_path) 
+        
+        
+band_name = "NDVI"
+output_path = f"rasters/historic_NDVI_rasters/2024/{month}/{day}"
+target_crs = "EPSG:32611"       
+def create_mosaic(band_name, output_path, target_crs="EPSG:32611"):
+    # Gather all raster files for the specific band
+    band_files = glob.glob(f"{output_path}/{band_name}_*.tif")
+    
+    # Open all the rasters into a list
+    raster_list = [rioxarray.open_rasterio(file, chunks={"x": 1024, "y": 1024}) for file in band_files]
+    
+    # Merge the rasters
+    mosaic = merge_arrays(raster_list)
+    
+    # Compute the mosaic to load it into memory
+    mosaic = mosaic.compute()
 
-        create_mosaic("NDVI", f"{output_path}/NDVI_mosaic.tif")
-      
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    # Reproject the mosaic to ensure CRS consistency
+    mosaic = mosaic.rio.reproject(target_crs)
+    
+    # Save the final mosaic
+    mosaic.rio.to_raster(f"{output_path}/NDVI_merged.tif", compress="LZW")
+    print(f"{band_name} mosaic saved to {output_path}")
+    
+# view the mosaic
+mosaic = rioxarray.open_rasterio(f"{output_path}/NDVI_merged.tif")
+mosaic_2d = mosaic.squeeze(dim="band")
+mosaic_2d.plot.imshow(robust=True)
+plt.show()
