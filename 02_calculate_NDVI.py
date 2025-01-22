@@ -79,7 +79,7 @@ def create_mosaic(band_name, output_path, target_crs="EPSG:32611"):
     mosaic.rio.to_raster(f"{output_path}/NDVI_merged.tif", compress="LZW")
     print(f"{band_name} mosaic saved to {output_path}")
     
-    
+# TODO: Loop through multiple dates and create NDVI rasters   
 dates = ["2024-07-26"] 
 for date in dates:
     search = client.search(
@@ -159,9 +159,3 @@ def create_mosaic(band_name, output_path, target_crs="EPSG:32611"):
     # Save the final mosaic
     mosaic.rio.to_raster(f"{output_path}/NDVI_merged.tif", compress="LZW")
     print(f"{band_name} mosaic saved to {output_path}")
-    
-# view the mosaic
-mosaic = rioxarray.open_rasterio(f"{output_path}/NDVI_merged.tif")
-mosaic_2d = mosaic.squeeze(dim="band")
-mosaic_2d.plot.imshow(robust=True)
-plt.show()
