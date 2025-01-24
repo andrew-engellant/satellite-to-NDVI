@@ -76,7 +76,14 @@ def create_mosaic(band_name, output_path, target_crs="EPSG:32611"):
     mosaic = mosaic.rio.reproject(target_crs)
     
     # Save the final mosaic
-    mosaic.rio.to_raster(f"{output_path}/NDVI_merged.tif", compress="LZW")
+    mosaic.rio.to_raster(
+    f"{output_path}/NDVI_merged.tif",
+    driver="GTiff", # Ensures the output is a GeoTIFF
+    compress="LZW", 
+    tiled=True, # Allows for reading/writing in smaller chunks
+    blockxsize=256,
+    blockysize=256
+)
     print(f"{band_name} mosaic saved to {output_path}")
     
 # TODO: Loop through multiple dates and create NDVI rasters   
@@ -136,26 +143,3 @@ for date in dates:
         
         create_mosaic("NDVI", output_path) 
         
-        
-band_name = "NDVI"
-output_path = f"rasters/historic_NDVI_rasters/2024/{month}/{day}"
-target_crs = "EPSG:32611"       
-def create_mosaic(band_name, output_path, target_crs="EPSG:32611"):
-    # Gather all raster files for the specific band
-    band_files = glob.glob(f"{output_path}/{band_name}_*.tif")
-    
-    # Open all the rasters into a list
-    raster_list = [rioxarray.open_rasterio(file, chunks={"x": 1024, "y": 1024}) for file in band_files]
-    
-    # Merge the rasters
-    mosaic = merge_arrays(raster_list)
-    
-    # Compute the mosaic to load it into memory
-    mosaic = mosaic.compute()
-
-    # Reproject the mosaic to ensure CRS consistency
-    mosaic = mosaic.rio.reproject(target_crs)
-    
-    # Save the final mosaic
-    mosaic.rio.to_raster(f"{output_path}/NDVI_merged.tif", compress="LZW")
-    print(f"{band_name} mosaic saved to {output_path}")
