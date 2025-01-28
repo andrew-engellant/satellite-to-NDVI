@@ -1,0 +1,13 @@
+1/28/2025
+Progress - I've successfully downloaded several satellite images that span the area of Missoula County and stitched them together to create one raster image. 
+        I've also created an NDVI (Normalized Difference Vegitation Index) layer than can be plotted on top of the baselayer to visualize vegitation health. 
+        This code is set up in a way that I can loop a list of dates and download, process, and save the satellite images from each date.
+Problems - I'm having some serious issues with the python geopandas package. There appears to be a recent update in the fiona package which geopandas relies on, 
+        I've spent a couple of hours trying to problem solve this with the help of chatGPT and StackOverflow, but have had no luck. This package is necessary to 
+        handle vector data which I will use to crop images to the shape of Missoula County.
+Plans - I have two goals for this nect week. First I want to properly handle the shapefiles I'll be using to plot the vector data for Missoula county. This will 
+        require some slight restructuring of my code to crop satellite images to within the bounds of Missoula County. My second goal is to reorganize my main code 
+        chunks to be more function oriented. My client has suggested that it would be helpful for my code to be modularized. I intend on wrapping the functionality
+        of the main satellite image processing loop into functions that can be reused.
+        I haven't been keeping track of my time spent but I would estimate I've spent around 40 hours on this project.
+
