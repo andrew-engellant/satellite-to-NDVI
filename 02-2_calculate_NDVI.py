@@ -44,10 +44,6 @@ def load_county_geometry(fips_code):
     geometry_umt = combined_county.to_crs("EPSG:32611")
     return combined_county, geometry_umt
 
-setup_environment("/Volumes/Drew_ext_drive/NDVI_Proj")
-geometry, geometry_utm = load_county_geometry('063')
-# setup_environment("/Volumes/Drew_ext_drive/NDVI_Proj")
-# mso_county = load_county_geometry('063')
 # ------------------------------------------------------------------------------
 # 2. STAC Searching
 # ------------------------------------------------------------------------------
@@ -71,7 +67,7 @@ def search_sentinel_scenes(date_str, geometry, collection, client):
         return None
 
 
-# search_sentinel_scenes("2024-07-26", geometry, "sentinel-2-l2a", client)
+
 # ------------------------------------------------------------------------------
 # 3. Band Clipping and Masking
 # ------------------------------------------------------------------------------
@@ -96,9 +92,6 @@ def clip_band(band_url, clip_geometry, target_crs="EPSG:32611"):
     band = band.rio.clip(clip_geometry.geometry.tolist(), crs=clip_geometry.crs)
     return band
 
-# items = search_sentinel_scenes("2024-07-26", geometry, "sentinel-2-l2a", client)
-# scene = items[0]
-# red_band = clip_band(scene.assets['red'].href, geometry_utm)
 def get_vegetation_pixels(target_band, scl_band, target_crs="EPSG:32611"):
     """
     Masks the target_band (Red or NIR) to include only vegetation pixels
@@ -134,7 +127,7 @@ def get_vegetation_pixels(target_band, scl_band, clip_geometry, target_crs="EPSG
     Parameters:
     target_band (rioxarray.DataArray): The target band to be masked.
     scl_band (rioxarray.DataArray): The SCL band to be used for masking.
-    clip_geometry (geometry): The geometry to clip the bands to.
+    clip_geometry (geopandas.GeoDataFrame): The geometry to clip the bands to.
     target_crs (str, optional): The target CRS to reproject the band to. Defaults to "EPSG:32611".
     
     Returns:
@@ -143,8 +136,9 @@ def get_vegetation_pixels(target_band, scl_band, clip_geometry, target_crs="EPSG
     if scl_band.rio.crs != target_crs:
         scl_band = scl_band.rio.reproject(target_crs)
     
-    # Clip the scl_band to the specified geometry
-    scl_band = scl_band.rio.clip([clip_geometry], crs=target_crs)
+    # Clip both bands to the specified geometry
+    scl_band = scl_band.rio.clip(clip_geometry.geometry.tolist(), crs=target_crs)
+    target_band = target_band.rio.clip(clip_geometry.geometry.tolist(), crs=target_crs)
 
     # Resample SCL to match the resolution of target_band
     scl_resampled = scl_band.rio.reproject_match(target_band)
@@ -283,16 +277,16 @@ def combine_layers(output_path):
     output_path (str): The directory where the raster files are located.
     """
     # Open each band
-    red = rioxarray.open_rasterio(f"{output_path}/red_merged", chunks={"x": 1024, "y": 1024})
-    green = rioxarray.open_rasterio(f"{output_path}/green_merged", chunks={"x": 1024, "y": 1024})
-    blue = rioxarray.open_rasterio(f"{output_path}/blue_merged", chunks={"x": 1024, "y": 1024})
-    ndvi = rioxarray.open_rasterio(f"{output_path}/NDVI_merged", chunks={"x": 1024, "y": 1024})
+    red = rioxarray.open_rasterio(f"{output_path}/red_merged.tif", chunks={"x": 1024, "y": 1024})
+    green = rioxarray.open_rasterio(f"{output_path}/green_merged.tif", chunks={"x": 1024, "y": 1024})
+    blue = rioxarray.open_rasterio(f"{output_path}/blue_merged.tif", chunks={"x": 1024, "y": 1024})
+    ndvi = rioxarray.open_rasterio(f"{output_path}/NDVI_merged.tif", chunks={"x": 1024, "y": 1024})
     
     # Stack bands into a single multi-band raster
     rgb_mosaic = xr.concat([red, green, blue, ndvi], dim="band")
     
     # Save the final RGB mosaic
-    rgb_mosaic.rio.to_raster(output_path, compress="LZW")
+    rgb_mosaic.rio.to_raster(f"{output_path}/RGB_NDVI_merged.tif", compress="LZW")
     print(f"Multiband raster saved to {output_path}")
 # ------------------------------------------------------------------------------
 # 6. Main Workflow
@@ -361,4 +355,3 @@ def main():
         process_date(date_str, geometry, geometry_utm, collection, client)
 
 main()
-
