@@ -6,8 +6,6 @@ import xarray as xr
 import rioxarray
 import rioxarray.merge
 import geopandas as gpd
-import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
 
 from pystac_client import Client
 from rioxarray.merge import merge_arrays
@@ -92,33 +90,6 @@ def clip_band(band_url, clip_geometry, target_crs="EPSG:32611"):
     band = band.rio.clip(clip_geometry.geometry.tolist(), crs=clip_geometry.crs)
     return band
 
-def get_vegetation_pixels(target_band, scl_band, target_crs="EPSG:32611"):
-    """
-    Masks the target_band (Red or NIR) to include only vegetation pixels
-    using the SCL band (value == 4).
-    
-    Parameters:
-    target_band (rioxarray.DataArray): The target band to be masked.
-    scl_band (rioxarray.DataArray): The SCL band to be used for masking.
-    target_crs (str, optional): The target CRS to reproject the band to. Defaults to "EPSG:32611".
-    
-    Returns:
-    rioxarray.DataArray: The masked band.
-    """
-    if scl_band.rio.crs != target_crs:
-        scl_band = scl_band.rio.reproject(target_crs)
-        
-    if target_band.rio.crs != target_crs:
-        target_band = target_band.rio.reproject(target_crs)
-    
-    scl_resampled = scl_band.rio.reproject_match(target_band)  # Resample to match resolution
-    vegetation_mask = scl_resampled == 4  # Identify vegetation pixels
-    band_masked = target_band.where(vegetation_mask)
-    
-    return band_masked
-
-
-### CHAT GPT TRY
 def get_vegetation_pixels(target_band, scl_band, clip_geometry, target_crs="EPSG:32611"):
     """
     Masks the target_band (Red or NIR) to include only vegetation pixels
@@ -205,27 +176,36 @@ def compute_ndvi(red_band_masked, nir_band_masked):
     # Retain the CRS from the red band (arbitrary choice, as both are aligned)
     ndvi = ndvi.rio.write_crs(red_band_masked.rio.crs)
     return ndvi
-
-def save_raster(raster, band_name, scene_id, output_path):
+    
+def save_raster(raster, band, scene_id, output_path):
     """
-    Saves a raster to disk as GeoTIFF.
+    Saves a RGB raster to disk as Cloud Optimized GeoTIFF.
     
     Parameters:
     raster (rioxarray.DataArray): The raster to be saved.
-    band_name (str): The name of the band to be used in the output file name.
     scene_id (str): The ID of the scene to be used in the output file name.
     output_path (str): The directory where the raster will be saved.
     """
-    output_file = f"{output_path}/{band_name}_{scene_id}.tif"
+    if band == 'RGB':
+        output_file = f"{output_path}/RGB_{scene_id}.tif"
+        photometric = 'RGB'
+    else:
+        output_file = f"{output_path}/{band}_{scene_id}.tif"
+        photometric = 'MINISBLACK'
+    
     raster.rio.to_raster(
         output_file,
         driver="GTiff",
         compress="LZW",
         tiled=True,
         blockxsize=256,
-        blockysize=256
+        blockysize=256,
+        photometric = photometric,
+        predictor = 2,
+        nodata = raster.rio.nodata,
+        bigtiff = 'IF_SAFER'
     )
-    print(f"Saved {band_name} raster to {output_file}")
+    print(f"Saved {band} raster to {output_file}")
 
 
 # ------------------------------------------------------------------------------
@@ -258,36 +238,26 @@ def create_mosaic(band_name, output_path, target_crs="EPSG:32611"):
     mosaic = mosaic.rio.reproject(target_crs)
     
     # Save the final mosaic
-    mosaic_file = f"{output_path}/{band_name}_merged.tif"
-    mosaic.rio.to_raster(
-        mosaic_file,
-        driver="GTiff",
-        compress="LZW",
-        tiled=True,
-        blockxsize=256,
-        blockysize=256
-    )
-    print(f"{band_name} mosaic saved to {mosaic_file}")
+    save_raster(mosaic, f"{band_name}_merged", "mosaic", output_path)
 
-def combine_layers(output_path):
+
+def combine_rgb_layers(output_path):
     """
-    Combines the red, green, blue, and NDVI bands into a single multi-band raster and saves it.
+    Combines the red, green, and blue bands into a single multi-band raster and saves it.
     
     Parameters:
     output_path (str): The directory where the raster files are located.
     """
     # Open each band
-    red = rioxarray.open_rasterio(f"{output_path}/red_merged.tif", chunks={"x": 1024, "y": 1024})
-    green = rioxarray.open_rasterio(f"{output_path}/green_merged.tif", chunks={"x": 1024, "y": 1024})
-    blue = rioxarray.open_rasterio(f"{output_path}/blue_merged.tif", chunks={"x": 1024, "y": 1024})
-    ndvi = rioxarray.open_rasterio(f"{output_path}/NDVI_merged.tif", chunks={"x": 1024, "y": 1024})
+    red = rioxarray.open_rasterio(f"{output_path}/red_merged_mosaic.tif", chunks={"x": 1024, "y": 1024})
+    green = rioxarray.open_rasterio(f"{output_path}/green_merged_mosaic.tif", chunks={"x": 1024, "y": 1024})
+    blue = rioxarray.open_rasterio(f"{output_path}/blue_merged_mosaic.tif", chunks={"x": 1024, "y": 1024})
+
+    # Stack only RGB bands into a single multi-band raster
+    rgb_mosaic = xr.concat([red, green, blue], dim="band")
     
-    # Stack bands into a single multi-band raster
-    rgb_mosaic = xr.concat([red, green, blue, ndvi], dim="band")
-    
-    # Save the final RGB mosaic
-    rgb_mosaic.rio.to_raster(f"{output_path}/RGB_NDVI_merged.tif", compress="LZW")
-    print(f"Multiband raster saved to {output_path}")
+    # Save the RGB mosaic
+    save_raster(rgb_mosaic, "RGB", "mosaic", output_path)
 # ------------------------------------------------------------------------------
 # 6. Main Workflow
 # ------------------------------------------------------------------------------
@@ -325,14 +295,14 @@ def process_date(date_str, geometry, geometry_utm, collection, client):
         
         ndvi = compute_ndvi(red_band_masked, nir_band_masked)
         save_raster(ndvi, 'NDVI', scene.id, output_path)
-    
+
     # After all scenes are processed, create a mosaic
     create_mosaic("NDVI", output_path)
     create_mosaic("red", output_path)
     create_mosaic("green", output_path)
     create_mosaic("blue", output_path)
 
-    combine_layers(output_path)
+    combine_rgb_layers(output_path)
 
 def main():
     # 1. Set up environment & geometry
@@ -355,3 +325,5 @@ def main():
         process_date(date_str, geometry, geometry_utm, collection, client)
 
 main()
+
+# output_path = "/Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/July/26"
