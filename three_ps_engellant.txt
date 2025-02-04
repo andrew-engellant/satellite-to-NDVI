@@ -11,3 +11,10 @@ Plans - I have two goals for this nect week. First I want to properly handle the
         of the main satellite image processing loop into functions that can be reused.
         I haven't been keeping track of my time spent but I would estimate I've spent around 40 hours on this project.
 
+2/4/2025
+Progress - I completed both goals, using a shapefile to only query data inside of MSO county and I restructured my code to into reuseable functions.
+        I also made some improvements such as saving rasters as Cloud Optimized Geotiffs and reprojecting rasters to Web Mercator.
+        Lastly I began looking into what tools I will want to use to build my web application.
+Problems - No issues to report currently. I just have some learning to do about how to structure a web application.
+Plans - My plans for this week are to build the framework for my web application. I'll worry less about the formatting this week and focus on getting the 
+        functionality working.
