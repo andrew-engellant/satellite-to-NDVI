@@ -1,10 +1,6 @@
 import rasterio
-from rasterio.plot import show
 import matplotlib.pyplot as plt
 import numpy as np
-
-# Path to your multiband raster file
-raster_path = '/Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/July/26/RGB_merged_cog.tif'
 
     # Function to apply a percentile-based contrast stretch
 def contrast_stretch(band, lower_percentile=2, upper_percentile=98):
@@ -17,7 +13,9 @@ def contrast_stretch(band, lower_percentile=2, upper_percentile=98):
     band_stretched = (band_stretched - lower) / (upper - lower)
     return band_stretched
 
-# Open the raster file
+
+# Plot RGB raster
+raster_path = '/Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/July/26/RGB_mosaic.tif'
 with rasterio.open(raster_path) as src:
     # Read the red, green, and blue bands (assuming bands 1, 2, and 3)
     red = src.read(1)
@@ -43,9 +41,8 @@ with rasterio.open(raster_path) as src:
     plt.show()
     
 
-# Path to your NDVI raster file
-ndvi_raster_path = '/Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/July/26/NDVI_merged.tif'
-# Open the NDVI raster file
+# Plot NDVI raster
+ndvi_raster_path = '/Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/July/26/NDVI_merged_mosaic.tif'
 with rasterio.open(ndvi_raster_path) as src:
     # Read the NDVI band (assuming it's the first band)
     ndvi = src.read(1)
@@ -58,7 +55,7 @@ with rasterio.open(ndvi_raster_path) as src:
 
     # Plot the NDVI raster with a colormap
     plt.figure(figsize=(10, 10))
-    ndvi_plot = plt.imshow(ndvi, cmap='RdYlGn', vmin=-1, vmax=1)  # Use a red-yellow-green colormap
+    ndvi_plot = plt.imshow(ndvi, cmap='RdYlGn', vmin=0.2, vmax=1)  # Use a red-yellow-green colormap
 
     # Add a colorbar
     cbar = plt.colorbar(ndvi_plot, fraction=0.046, pad=0.04)
