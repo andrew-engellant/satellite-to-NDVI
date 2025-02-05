@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Interactive Raster Viewer</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+    <style>
+        #map {
+            width: 100%;
+            height: 90vh;
+        }
+    </style>
+</head>
+<body>
+    <h2>Styled Raster Viewer</h2>
+    <div id="map"></div>
+
+    <!-- Leaflet.js -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        // ---- Initialize the Map ----
+        var map = L.map('map').setView([46.8721, -113.9940], 12); // Adjusted center to fit your raster bounds
+
+        // ---- Base Layer (OpenStreetMap) ----
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // ---- TiTiler Styled Tile URLs ----
+
+        // RGB Layer with Rescaling for Proper Visualization
+        var rgbTileURL = "http://localhost:8000/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png" +
+            "?url=file:///Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/July/26/RGB_mosaic.tif" +
+            "&bidx=1&bidx=2&bidx=3" +                // Corrected bidx format
+            "&rescale=2,98&rescale=2,98&rescale=2,98";                     // Ensure proper color display for uint8 data
+
+        // NDVI Layer with Colormap and Proper NoData Handling
+        var ndviTileURL = "http://localhost:8000/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png" +
+            "?url=file:///Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/July/26/NDVI_merged_mosaic.tif" +
+            "&colormap_name=rdylgn" +             // Apply Red-Yellow-Green colormap
+            "&rescale=-0.1,1" +                     // Rescale NDVI values between -1 and 1
+            "&nodata=nan";                        // Ensure NoData areas are transparent
+
+        // ---- Add Layers to Map ----
+
+        // RGB Layer
+        var rgbLayer = L.tileLayer(rgbTileURL, {
+            attribution: 'RGB Data',
+            opacity: 0.9,
+        });
+
+        // NDVI Layer
+        var ndviLayer = L.tileLayer(ndviTileURL, {
+            attribution: 'NDVI Data (Colormapped)',
+            opacity: 0.9,
+        });
+
+        // ---- Layer Controls ----
+        var baseMaps = {
+            "OpenStreetMap": map
+        };
+
+        var overlayMaps = {
+            "RGB Layer": rgbLayer,
+            "NDVI Layer": ndviLayer
+        };
+
+        L.control.layers(baseMaps, overlayMaps, { collapsed: false }).addTo(map);
+
+        // ---- Display RGB Layer by Default ----
+        rgbLayer.addTo(map);
+    </script>
+</body>
+</html>
+
