@@ -6,10 +6,12 @@ import xarray as xr
 import rioxarray
 import rioxarray.merge
 import geopandas as gpd
+import rasterio
+
 
 from pystac_client import Client
 from rioxarray.merge import merge_arrays
-
+from rasterio.enums import Resampling
 
 # ------------------------------------------------------------------------------
 # 1. Environment and Geometry Setup
@@ -118,8 +120,6 @@ def get_vegetation_pixels(target_band, scl_band, clip_geometry, target_crs="EPSG
     
     return band_masked
 
-
-
 def clip_and_mask_bands(scene, geometry_utm):
     """
     From a STAC scene, clip and mask the Red, NIR, and SCL bands.
@@ -189,9 +189,16 @@ def save_raster(raster, band, scene_id, output_path):
     if band == 'RGB':
         output_file = f"{output_path}/RGB_{scene_id}.tif"
         photometric = 'RGB'
+        dtype = 'uint8'
+        nodata = 0
     else:
         output_file = f"{output_path}/{band}_{scene_id}.tif"
         photometric = 'MINISBLACK'
+        dtype = 'float32'
+        nodata = np.nan
+    
+    # Ensure the raster data type matches the expected type
+    raster = raster.astype(dtype)
     
     raster.rio.to_raster(
         output_file,
@@ -202,8 +209,9 @@ def save_raster(raster, band, scene_id, output_path):
         blockysize=256,
         photometric = photometric,
         predictor = 2,
-        nodata = raster.rio.nodata,
-        bigtiff = 'IF_SAFER'
+        nodata = nodata,
+        bigtiff = 'IF_SAFER',
+        overview_resampling = 'average'
     )
     print(f"Saved {band} raster to {output_file}")
 
@@ -240,6 +248,20 @@ def create_mosaic(band_name, output_path, target_crs="EPSG:32611"):
     # Save the final mosaic
     save_raster(mosaic, f"{band_name}_merged", "mosaic", output_path)
 
+def rescale_band(band, min_val, max_val):
+    """
+    Rescales a band to 0-255 for visualization.
+    
+    Parameters:
+    band (rioxarray.DataArray): The input band to rescale.
+    min_val (float): The minimum value for rescaling.
+    max_val (float): The maximum value for rescaling.
+    
+    Returns:
+    rioxarray.DataArray: The rescaled band.
+    """
+    scaled_band = (band - min_val) / (max_val - min_val) * 255
+    return scaled_band.clip(0, 255).astype('uint8')
 
 def combine_rgb_layers(output_path):
     """
@@ -253,11 +275,37 @@ def combine_rgb_layers(output_path):
     green = rioxarray.open_rasterio(f"{output_path}/green_merged_mosaic.tif", chunks={"x": 1024, "y": 1024})
     blue = rioxarray.open_rasterio(f"{output_path}/blue_merged_mosaic.tif", chunks={"x": 1024, "y": 1024})
 
+    # Rescale each band to 0-255
+    red = rescale_band(red, 0, 10000)    # Sentinel-2 typical reflectance range
+    green = rescale_band(green, 0, 10000)
+    blue = rescale_band(blue, 0, 10000)
+    
     # Stack only RGB bands into a single multi-band raster
     rgb_mosaic = xr.concat([red, green, blue], dim="band")
     
+    # Set NoData value explicitly for all bands
+    rgb_mosaic.rio.write_nodata(0, inplace=True)
+    
     # Save the RGB mosaic
     save_raster(rgb_mosaic, "RGB", "mosaic", output_path)
+    
+def add_overviews(raster_path, overview_factors=[2, 4, 8, 16, 32], resampling_method=Resampling.average):
+    """
+    Adds overviews (pyramids) to an existing raster for faster rendering in web applications.
+    
+    Parameters:
+    raster_path (str): Path to the raster file.
+    overview_factors (list): List of overview levels (default: [2, 4, 8, 16, 32]).
+    resampling_method (rasterio.enums.Resampling): Resampling method for overviews (default: average).
+    """
+    with rasterio.open(raster_path, 'r+') as src:
+        # Build overviews at specified factors
+        src.build_overviews(overview_factors, resampling_method)
+        
+        # Update tags to record overview information
+        src.update_tags(ns='rio_overview', resampling=resampling_method.name)
+    
+    print(f"Overviews added to {raster_path} using {resampling_method.name} resampling.")
 # ------------------------------------------------------------------------------
 # 6. Main Workflow
 # ------------------------------------------------------------------------------
@@ -297,12 +345,15 @@ def process_date(date_str, geometry, geometry_utm, collection, client):
         save_raster(ndvi, 'NDVI', scene.id, output_path)
 
     # After all scenes are processed, create a mosaic
-    create_mosaic("NDVI", output_path)
-    create_mosaic("red", output_path)
-    create_mosaic("green", output_path)
-    create_mosaic("blue", output_path)
+    create_mosaic("NDVI", output_path, target_crs="EPSG:3857") # Changes final mosaic to Web Mercator
+    create_mosaic("red", output_path, target_crs="EPSG:3857")
+    create_mosaic("green", output_path, target_crs="EPSG:3857")
+    create_mosaic("blue", output_path, target_crs="EPSG:3857")
 
     combine_rgb_layers(output_path)
+    
+    add_overviews(f"{output_path}/RGB_mosaic.tif")
+    add_overviews(f"{output_path}/NDVI_merged_mosaic.tif")
 
 def main():
     # 1. Set up environment & geometry
