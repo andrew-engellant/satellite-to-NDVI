@@ -18,3 +18,11 @@ Progress - I completed both goals, using a shapefile to only query data inside o
 Problems - No issues to report currently. I just have some learning to do about how to structure a web application.
 Plans - My plans for this week are to build the framework for my web application. I'll worry less about the formatting this week and focus on getting the 
         functionality working.
+
+2/11/2025
+Progress - I built functioning application that displays the RGB and NDVI layers from a single day in an interactive map. This application is just hosted locally on
+        on my laptop, but it holds the framework for my end product. I also communicated with my client and recieved access to their cloud storage. 
+Problems - I've been troubleshooting using the boto3 package which is an AWS s3 api to save raster images to the cloud storage. It's been a slower process than I
+        anticipated but I've been making progress none the less. 
+Plans - My plans for this next week are to apply my code to the entire 2024 growing season. By the end of this week I'd like to have all availible RGB and NDVI
+        layers saved to the cloud. This will allow me to work on building the final digital product in the following week.
