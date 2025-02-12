@@ -12,7 +12,7 @@
     </style>
 </head>
 <body>
-    <h2>Styled Raster Viewer</h2>
+    <h2>Interactive Raster Viewer</h2>
     <div id="map"></div>
 
     <!-- Leaflet.js -->
@@ -31,12 +31,11 @@
         // RGB Layer with Rescaling for Proper Visualization
         var rgbTileURL = "http://localhost:8000/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png" +
             "?url=file:///Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/July/26/RGB_mosaic.tif" +
-            "&bidx=1&bidx=2&bidx=3" +                // Corrected bidx format
-            "&rescale=2,98&rescale=2,98&rescale=2,98";                     // Ensure proper color display for uint8 data
+            "&bidx=1&bidx=2&bidx=3";                 // Corrected bidx format
 
         // NDVI Layer with Colormap and Proper NoData Handling
         var ndviTileURL = "http://localhost:8000/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png" +
-            "?url=file:///Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/July/26/NDVI_merged_mosaic.tif" +
+            "?url=file:///Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/July/26/NDVI_mosaic.tif" +
             "&colormap_name=rdylgn" +             // Apply Red-Yellow-Green colormap
             "&rescale=-0.1,1" +                     // Rescale NDVI values between -1 and 1
             "&nodata=nan";                        // Ensure NoData areas are transparent
