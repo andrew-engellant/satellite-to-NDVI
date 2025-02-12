@@ -12,6 +12,7 @@ import rasterio
 from pystac_client import Client
 from rioxarray.merge import merge_arrays
 from rasterio.enums import Resampling
+from upload_to_DO import connect_s3_client, upload_image_to_s3
 
 # ------------------------------------------------------------------------------
 # 1. Environment and Geometry Setup
@@ -116,7 +117,7 @@ def get_vegetation_pixels(target_band, scl_band, clip_geometry, target_crs="EPSG
     # Resample SCL to match the resolution of target_band
     scl_resampled = scl_band.rio.reproject_match(target_band)
     vegetation_mask = scl_resampled == 4  # Create a mask for vegetation pixels
-    band_masked = target_band.where(vegetation_mask)  # Apply the mask to the band
+    band_masked = target_band.where(vegetation_mask, np.nan)  # Apply the mask to the band
     
     return band_masked
 
@@ -246,9 +247,9 @@ def create_mosaic(band_name, output_path, target_crs="EPSG:32611"):
     mosaic = mosaic.rio.reproject(target_crs)
     
     # Save the final mosaic
-    save_raster(mosaic, f"{band_name}_merged", "mosaic", output_path)
+    save_raster(mosaic, band_name, "mosaic", output_path)
 
-def rescale_band(band, min_val, max_val):
+def rescale_band(band):
     """
     Rescales a band to 0-255 for visualization.
     
@@ -260,8 +261,12 @@ def rescale_band(band, min_val, max_val):
     Returns:
     rioxarray.DataArray: The rescaled band.
     """
-    scaled_band = (band - min_val) / (max_val - min_val) * 255
-    return scaled_band.clip(0, 255).astype('uint8')
+        # Compute 2nd and 98th percentile values
+    p1, p99 = np.percentile(band.values, [0.1, 99.9])
+
+    # Apply linear rescaling
+    band = (band - p1) / (p99 - p1) * 255
+    return band.clip(0, 255).astype(np.uint8) # Ensure values stay between 0-255 and are 8-bit
 
 def combine_rgb_layers(output_path):
     """
@@ -271,14 +276,14 @@ def combine_rgb_layers(output_path):
     output_path (str): The directory where the raster files are located.
     """
     # Open each band
-    red = rioxarray.open_rasterio(f"{output_path}/red_merged_mosaic.tif", chunks={"x": 1024, "y": 1024})
-    green = rioxarray.open_rasterio(f"{output_path}/green_merged_mosaic.tif", chunks={"x": 1024, "y": 1024})
-    blue = rioxarray.open_rasterio(f"{output_path}/blue_merged_mosaic.tif", chunks={"x": 1024, "y": 1024})
+    red = rioxarray.open_rasterio(f"{output_path}/red_mosaic.tif", chunks={"x": 1024, "y": 1024})
+    green = rioxarray.open_rasterio(f"{output_path}/green_mosaic.tif", chunks={"x": 1024, "y": 1024})
+    blue = rioxarray.open_rasterio(f"{output_path}/blue_mosaic.tif", chunks={"x": 1024, "y": 1024})
 
     # Rescale each band to 0-255
-    red = rescale_band(red, 0, 10000)    # Sentinel-2 typical reflectance range
-    green = rescale_band(green, 0, 10000)
-    blue = rescale_band(blue, 0, 10000)
+    red = rescale_band(red)    # Sentinel-2 typical reflectance range
+    green = rescale_band(green)
+    blue = rescale_band(blue)
     
     # Stack only RGB bands into a single multi-band raster
     rgb_mosaic = xr.concat([red, green, blue], dim="band")
@@ -353,8 +358,13 @@ def process_date(date_str, geometry, geometry_utm, collection, client):
     combine_rgb_layers(output_path)
     
     add_overviews(f"{output_path}/RGB_mosaic.tif")
-    add_overviews(f"{output_path}/NDVI_merged_mosaic.tif")
-
+    add_overviews(f"{output_path}/NDVI_mosaic.tif")
+    
+    # Upload the RGB and NDVI mosaics to S3
+    client, BUCKET_NAME = connect_s3_client()
+    upload_image_to_s3(client, BUCKET_NAME, f"{output_path}/RGB_mosaic.tif", date_str)
+    upload_image_to_s3(client, BUCKET_NAME, f"{output_path}/NDVI_mosaic.tif", date_str)
+    
 def main():
     # 1. Set up environment & geometry
     working_directory = "/Volumes/Drew_ext_drive/NDVI_Proj"
@@ -374,7 +384,8 @@ def main():
     # 4. Process each date
     for date_str in dates:
         process_date(date_str, geometry, geometry_utm, collection, client)
-
+        
 main()
 
-# output_path = "/Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/July/26"
+date_str = "2024-07-26"
+output_path = "/Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/July/26"
