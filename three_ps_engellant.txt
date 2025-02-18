@@ -1,3 +1,26 @@
+2/18/2025
+Progress - I included some functionality into my main code to save the RGB and NDVI raster layers to the s3 bucket and I've been in communication with my client 
+        about accessing a GUI to visualize this cloud storage space.
+Problems - I didn't make as much progress as I would have liked this past week. My client was out of town for the week and I have limited access to view the
+        files I've saved in the cloud to verify that they have been properly stored. I have plans to meet with my client about this issue early this week.
+Plans - My goals for this next week remain the same. I'd like to verify my cloud storage method and then apply my main code loop to all of the 2024 growing season.
+
+2/11/2025
+Progress - I built functioning application that displays the RGB and NDVI layers from a single day in an interactive map. This application is just hosted locally on
+        on my laptop, but it holds the framework for my end product. I also communicated with my client and recieved access to their cloud storage. 
+Problems - I've been troubleshooting using the boto3 package which is an AWS s3 api to save raster images to the cloud storage. It's been a slower process than I
+        anticipated but I've been making progress none the less. 
+Plans - My plans for this next week are to apply my code to the entire 2024 growing season. By the end of this week I'd like to have all availible RGB and NDVI
+        layers saved to the cloud. This will allow me to work on building the final digital product in the following week.
+
+2/4/2025
+Progress - I completed both goals, using a shapefile to only query data inside of MSO county and I restructured my code to into reuseable functions.
+        I also made some improvements such as saving rasters as Cloud Optimized Geotiffs and reprojecting rasters to Web Mercator.
+        Lastly I began looking into what tools I will want to use to build my web application.
+Problems - No issues to report currently. I just have some learning to do about how to structure a web application.
+Plans - My plans for this week are to build the framework for my web application. I'll worry less about the formatting this week and focus on getting the 
+        functionality working.
+
 1/28/2025
 Progress - I've successfully downloaded several satellite images that span the area of Missoula County and stitched them together to create one raster image. 
         I've also created an NDVI (Normalized Difference Vegitation Index) layer than can be plotted on top of the baselayer to visualize vegitation health. 
@@ -10,19 +33,3 @@ Plans - I have two goals for this nect week. First I want to properly handle the
         chunks to be more function oriented. My client has suggested that it would be helpful for my code to be modularized. I intend on wrapping the functionality
         of the main satellite image processing loop into functions that can be reused.
         I haven't been keeping track of my time spent but I would estimate I've spent around 40 hours on this project.
-
-2/4/2025
-Progress - I completed both goals, using a shapefile to only query data inside of MSO county and I restructured my code to into reuseable functions.
-        I also made some improvements such as saving rasters as Cloud Optimized Geotiffs and reprojecting rasters to Web Mercator.
-        Lastly I began looking into what tools I will want to use to build my web application.
-Problems - No issues to report currently. I just have some learning to do about how to structure a web application.
-Plans - My plans for this week are to build the framework for my web application. I'll worry less about the formatting this week and focus on getting the 
-        functionality working.
-
-2/11/2025
-Progress - I built functioning application that displays the RGB and NDVI layers from a single day in an interactive map. This application is just hosted locally on
-        on my laptop, but it holds the framework for my end product. I also communicated with my client and recieved access to their cloud storage. 
-Problems - I've been troubleshooting using the boto3 package which is an AWS s3 api to save raster images to the cloud storage. It's been a slower process than I
-        anticipated but I've been making progress none the less. 
-Plans - My plans for this next week are to apply my code to the entire 2024 growing season. By the end of this week I'd like to have all availible RGB and NDVI
-        layers saved to the cloud. This will allow me to work on building the final digital product in the following week.
