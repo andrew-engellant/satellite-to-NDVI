@@ -8,7 +8,7 @@ import rioxarray.merge
 import geopandas as gpd
 import rasterio
 
-
+from datetime import datetime, timedelta
 from pystac_client import Client
 from rioxarray.merge import merge_arrays
 from rasterio.enums import Resampling
@@ -196,7 +196,7 @@ def save_raster(raster, band, scene_id, output_path):
         output_file = f"{output_path}/{band}_{scene_id}.tif"
         photometric = 'MINISBLACK'
         dtype = 'float32'
-        nodata = np.nan
+        nodata = -9999
     
     # Ensure the raster data type matches the expected type
     raster = raster.astype(dtype)
@@ -249,49 +249,62 @@ def create_mosaic(band_name, output_path, target_crs="EPSG:32611"):
     # Save the final mosaic
     save_raster(mosaic, band_name, "mosaic", output_path)
 
-def rescale_band(band):
+def rescale_band(band, scl_band=None, cloud_values=[3, 8, 9, 10, 11]): 
     """
-    Rescales a band to 0-255 for visualization.
+    Rescales a band to 0-255 for visualization, excluding cloud, snow, and shadow pixels 
+    if an SCL band is provided.
     
     Parameters:
-    band (rioxarray.DataArray): The input band to rescale.
-    min_val (float): The minimum value for rescaling.
-    max_val (float): The maximum value for rescaling.
+        band (rioxarray.DataArray): The input band to rescale.
+        scl_band (rioxarray.DataArray, optional): The scene classification layer used to mask out cloud pixels.
+        cloud_values (list): List of SCL values representing clouds, snow, or shadows.
     
     Returns:
-    rioxarray.DataArray: The rescaled band.
+        rioxarray.DataArray: The rescaled band as an 8-bit unsigned integer array.
     """
-        # Compute 2nd and 98th percentile values
-    p1, p99 = np.percentile(band.values, [0.1, 99.9])
+    if scl_band is not None:
+        # Resample the SCL band to match the resolution and grid of the target band.
+        scl_resampled = scl_band.rio.reproject_match(band)
+        # Create a mask: True for pixels NOT matching any cloud value.
+        mask = ~np.isin(scl_resampled.values, cloud_values)
+        valid_pixels = band.values[mask]
+    else:
+        valid_pixels = band.values
 
-    # Apply linear rescaling
-    band = (band - p1) / (p99 - p1) * 255
-    return band.clip(0, 255).astype(np.uint8) # Ensure values stay between 0-255 and are 8-bit
+    # Compute the 0.1th and 99.9th percentiles on valid (non-cloud) pixels.
+    p1, p99 = np.percentile(valid_pixels, [0.1, 99.9])
+    
+    # Apply linear rescaling.
+    band_rescaled = (band - p1) / (p99 - p1) * 255
+    return band_rescaled.clip(0, 255).astype(np.uint8)
 
-def combine_rgb_layers(output_path):
+
+def combine_rgb_layers(output_path, scl_mosaic):
     """
-    Combines the red, green, and blue bands into a single multi-band raster and saves it.
+    Combines the red, green, and blue mosaic bands into a single multi-band raster and saves it.
+    Uses the provided SCL mosaic to exclude cloud pixels during the rescaling process.
     
     Parameters:
-    output_path (str): The directory where the raster files are located.
+        output_path (str): The directory where the mosaic raster files are located.
+        scl_mosaic (rioxarray.DataArray): The mosaic SCL band used for cloud masking.
     """
-    # Open each band
+    # Open each mosaic band.
     red = rioxarray.open_rasterio(f"{output_path}/red_mosaic.tif", chunks={"x": 1024, "y": 1024})
     green = rioxarray.open_rasterio(f"{output_path}/green_mosaic.tif", chunks={"x": 1024, "y": 1024})
     blue = rioxarray.open_rasterio(f"{output_path}/blue_mosaic.tif", chunks={"x": 1024, "y": 1024})
 
-    # Rescale each band to 0-255
-    red = rescale_band(red)    # Sentinel-2 typical reflectance range
-    green = rescale_band(green)
-    blue = rescale_band(blue)
+    # Rescale each band to 0-255 using the provided SCL mosaic for masking.
+    red = rescale_band(red, scl_mosaic)
+    green = rescale_band(green, scl_mosaic)
+    blue = rescale_band(blue, scl_mosaic)
     
-    # Stack only RGB bands into a single multi-band raster
+    # Stack the rescaled bands into a single multi-band raster.
     rgb_mosaic = xr.concat([red, green, blue], dim="band")
     
-    # Set NoData value explicitly for all bands
+    # Set the NoData value explicitly for all bands.
     rgb_mosaic.rio.write_nodata(0, inplace=True)
     
-    # Save the RGB mosaic
+    # Save the RGB mosaic.
     save_raster(rgb_mosaic, "RGB", "mosaic", output_path)
     
 def add_overviews(raster_path, overview_factors=[2, 4, 8, 16, 32], resampling_method=Resampling.average):
@@ -339,26 +352,48 @@ def process_date(date_str, geometry, geometry_utm, collection, client):
         
         red_band = clip_band(scene.assets['red'].href, geometry_utm)
         save_raster(red_band, 'red', scene.id, output_path)
+        red_band.close()
+        del red_band
+        
         blue_band = clip_band(scene.assets['blue'].href, geometry_utm)
         save_raster(blue_band, 'blue', scene.id, output_path)
+        blue_band.close()
+        del blue_band
+        
         green_band = clip_band(scene.assets['green'].href, geometry_utm)
         save_raster(green_band, 'green', scene.id, output_path)
+        green_band.close()
+        del green_band
+        
+        scl_band = clip_band(scene.assets['scl'].href, geometry_utm)
+        save_raster(scl_band, 'scl', scene.id, output_path)
+        scl_band.close()
+        del scl_band
         
         red_band_masked, nir_band_masked = clip_and_mask_bands(scene, geometry_utm)
         
         ndvi = compute_ndvi(red_band_masked, nir_band_masked)
+        ndvi = ndvi.rio.clip(geometry_utm.geometry.tolist(), crs=geometry_utm.crs)
         save_raster(ndvi, 'NDVI', scene.id, output_path)
+        red_band_masked.close()
+        nir_band_masked.close()
+        ndvi.close()
+        del red_band_masked, nir_band_masked, ndvi  # Delete the bands to free memory
 
     # After all scenes are processed, create a mosaic
-    create_mosaic("NDVI", output_path, target_crs="EPSG:3857") # Changes final mosaic to Web Mercator
+    create_mosaic("NDVI", output_path, target_crs="EPSG:3857")
+    # Changes final mosaic to Web Mercator
     create_mosaic("red", output_path, target_crs="EPSG:3857")
     create_mosaic("green", output_path, target_crs="EPSG:3857")
     create_mosaic("blue", output_path, target_crs="EPSG:3857")
+    create_mosaic("SCL", output_path, target_crs="EPSG:3857")
 
-    combine_rgb_layers(output_path)
+    scl_mosaic = rioxarray.open_rasterio(f"{output_path}/SCL_mosaic.tif", chunks={"x": 1024, "y": 1024})
+    combine_rgb_layers(output_path, scl_mosaic)
     
     add_overviews(f"{output_path}/RGB_mosaic.tif")
     add_overviews(f"{output_path}/NDVI_mosaic.tif")
+    add_overviews(f"{output_path}/SCL_mosaic.tif")
     
     # Upload the RGB and NDVI mosaics to S3
     client, BUCKET_NAME = connect_s3_client()
@@ -378,8 +413,14 @@ def main():
     
     collection = "sentinel-2-l2a"
     
-    # 3. Specify your target dates
-    dates = ["2024-07-26"]  # Add more dates as needed
+    # 3. Specify the target dates
+    start_date = datetime(2024, 4, 1) # April 1, 2024
+    end_date = datetime(2024, 5, 31) # May 31, 2024
+    delta = timedelta(days=1)
+
+    # # Include all dates from April-October 2024
+    dates = [(start_date + delta * i).strftime("%Y-%m-%d") for i in range((end_date - start_date).days + 1)]
+    # dates = ['2024-04-15']
     
     # 4. Process each date
     for date_str in dates:
@@ -387,5 +428,5 @@ def main():
         
 main()
 
-date_str = "2024-07-26"
-output_path = "/Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/July/26"
+# date_str = "2024-07-26"
+output_path = "/Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/April/15"
