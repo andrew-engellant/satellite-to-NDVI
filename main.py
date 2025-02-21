@@ -51,15 +51,22 @@ def load_county_geometry(fips_code):
 def search_sentinel_scenes(date_str, geometry, collection, client):
     """
     Uses the STAC client to search Sentinel-2 scenes intersecting the input geometry,
-    on the given date. Returns an ItemCollection if any scenes are found, otherwise None.
+    on the given date. Returns an ItemCollection if any scenes are found if at least 
+    one scene contains less than 80% cloud coverage, otherwise None.
     """
     search = client.search(
         collections=[collection],
         bbox=geometry['geometry'].union_all().bounds, # This converts the geopandas dataframe into a bounding box tuple
-        datetime=date_str
+        datetime=date_str,
+        query={"eo:cloud_cover": {"lt": 65}} # Looking for cloud coverage less than 65%
     )
     
     if search.matched() > 0:
+        search = client.search(
+        collections=[collection],
+        bbox=geometry['geometry'].union_all().bounds, # This converts the geopandas dataframe into a bounding box tuple
+        datetime=date_str 
+        )
         items = search.item_collection()
         print(f"{len(items)} Scenes matched for {date_str}")
         return items
@@ -366,7 +373,7 @@ def process_date(date_str, geometry, geometry_utm, collection, client):
         del green_band
         
         scl_band = clip_band(scene.assets['scl'].href, geometry_utm)
-        save_raster(scl_band, 'scl', scene.id, output_path)
+        save_raster(scl_band, 'SCL', scene.id, output_path)
         scl_band.close()
         del scl_band
         
@@ -414,8 +421,8 @@ def main():
     collection = "sentinel-2-l2a"
     
     # 3. Specify the target dates
-    start_date = datetime(2024, 4, 1) # April 1, 2024
-    end_date = datetime(2024, 5, 31) # May 31, 2024
+    start_date = datetime(2024, 4, 3) # April 1, 2024
+    end_date = datetime(2024, 4, 30) # May 31, 2024
     delta = timedelta(days=1)
 
     # # Include all dates from April-October 2024
@@ -429,4 +436,4 @@ def main():
 main()
 
 # date_str = "2024-07-26"
-output_path = "/Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/April/15"
+# output_path = "/Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/April/15"
