@@ -1,74 +1,153 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Interactive Raster Viewer</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
-    <style>
-        #map {
-            width: 100%;
-            height: 90vh;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>Interactive Raster Viewer</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+  <style>
+    #map {
+      width: 100%;
+      height: 90vh;
+    }
+    #controlPanel {
+      margin: 10px;
+      font-family: Arial, sans-serif;
+    }
+    #controlPanel label {
+      margin-right: 5px;
+    }
+    #controlPanel select {
+      margin-right: 15px;
+    }
+  </style>
 </head>
 <body>
-    <h2>Interactive Raster Viewer</h2>
-    <div id="map"></div>
+  <h2>Interactive Raster Viewer</h2>
 
-    <!-- Leaflet.js -->
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script>
-        // ---- Initialize the Map ----
-        var map = L.map('map').setView([46.8721, -113.9940], 12); // Adjusted center to fit your raster bounds
+  <!-- Month and Day selection dropdowns-->
+  <div id="controlPanel">
+    <label for="monthSelect">Select Month:</label>
+    <select id="monthSelect">
+      <!-- Options will be populated based on API response -->
+    </select>
+    
+    <label for="daySelect">Select Day:</label>
+    <select id="daySelect">
+      <!-- Options will be populated based on the selected month -->
+    </select>
+  </div>
 
-        // ---- Base Layer (OpenStreetMap) ----
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
+  <div id="map"></div>
 
-        // ---- TiTiler Styled Tile URLs ----
+  <!-- Leaflet.js -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // Global variable to store available days retrieved from the API
+    var availableDaysData = {};
 
-        // RGB Layer with Rescaling for Proper Visualization
-        var rgbTileURL = "http://localhost:8000/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png" +
-            "?url=file:///Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/July/26/RGB_mosaic.tif" +
-            "&bidx=1&bidx=2&bidx=3";                 // Corrected bidx format
+    // Fetch available days from the FastAPI endpoint
+    function fetchAvailableDays() {
+      fetch("http://localhost:8000/available_days")
+        .then(response => response.json())
+        .then(data => {
+          availableDaysData = data;
+          populateMonthDropdown(data);
+        })
+        .catch(error => console.error("Error fetching available days:", error));
+    }
 
-        // NDVI Layer with Colormap and Proper NoData Handling
-        var ndviTileURL = "http://localhost:8000/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png" +
-            "?url=file:///Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/July/26/NDVI_mosaic.tif" +
-            "&colormap_name=rdylgn" +             // Apply Red-Yellow-Green colormap
-            "&rescale=-0.1,1" +                     // Rescale NDVI values between -1 and 1
-            "&nodata=nan";                        // Ensure NoData areas are transparent
+    // Populate the month dropdown based on the keys from the returned JSON
+    function populateMonthDropdown(data) {
+      var monthSelect = document.getElementById("monthSelect");
+      monthSelect.innerHTML = ""; // Clear existing options
 
-        // ---- Add Layers to Map ----
+      // Populate the month select with available months (keys from data)
+      for (var month in data) {
+        var option = document.createElement("option");
+        option.value = month;
+        option.text = month;
+        monthSelect.appendChild(option);
+      }
+      // Attach event listener to update days when the month selection changes
+      monthSelect.addEventListener("change", updateDayDropdown);
+      // Initialize the day dropdown with the first month’s available days
+      updateDayDropdown();
+    }
 
-        // RGB Layer
-        var rgbLayer = L.tileLayer(rgbTileURL, {
-            attribution: 'RGB Data',
-            opacity: 0.9,
-        });
+    // Update the day dropdown based on the selected month
+    function updateDayDropdown() {
+      var monthSelect = document.getElementById("monthSelect");
+      var daySelect = document.getElementById("daySelect");
+      daySelect.innerHTML = ""; // Clear existing options
 
-        // NDVI Layer
-        var ndviLayer = L.tileLayer(ndviTileURL, {
-            attribution: 'NDVI Data (Colormapped)',
-            opacity: 0.9,
-        });
+      var selectedMonth = monthSelect.value;
+      var days = availableDaysData[selectedMonth] || [];
+      days.forEach(function(day) {
+        var option = document.createElement("option");
+        option.value = day;
+        // Display as number (removes any leading zero if present)
+        option.text = parseInt(day, 10);
+        daySelect.appendChild(option);
+      });
+      // Update the raster layers with the newly selected day (first option)
+      updateTileLayers();
+    }
 
-        // ---- Layer Controls ----
-        var baseMaps = {
-            "OpenStreetMap": map
-        };
+    // Update the tile layers based on the selected month and day.
+    function updateTileLayers() {
+      var month = document.getElementById("monthSelect").value;
+      var day = document.getElementById("daySelect").value;
 
-        var overlayMaps = {
-            "RGB Layer": rgbLayer,
-            "NDVI Layer": ndviLayer
-        };
+      var newRgbTileURL = "http://localhost:8000/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png" +
+        "?url=file:///Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/" + month + "/" + day + "/RGB_mosaic.tif" +
+        "&bidx=1&bidx=2&bidx=3";
 
-        L.control.layers(baseMaps, overlayMaps, { collapsed: false }).addTo(map);
+      var newNdviTileURL = "http://localhost:8000/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png" +
+        "?url=file:///Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/" + month + "/" + day + "/NDVI_mosaic.tif" +
+        "&colormap_name=rdylgn" +
+        "&rescale=0.01,1" +
+        "&nodata=nan" +
+        "&return_mask=true";
 
-        // ---- Display RGB Layer by Default ----
-        rgbLayer.addTo(map);
-    </script>
+      // Update the URLs of the tile layers so that Leaflet loads the new data.
+      rgbLayer.setUrl(newRgbTileURL);
+      ndviLayer.setUrl(newNdviTileURL);
+    }
+
+    // Attach event listener to the day dropdown to update tile layers when the day changes.
+    document.getElementById("daySelect").addEventListener("change", updateTileLayers);
+
+    // ---- Initialize the Map using Leaflet ----
+    var map = L.map("map").setView([46.8721, -113.9940], 12);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(map);
+
+    // Placeholder tile layers; these URLs will be updated dynamically.
+    var rgbTileURL = "";
+    var ndviTileURL = "";
+    var rgbLayer = L.tileLayer(rgbTileURL, {
+      attribution: "RGB Data",
+      opacity: 0.9
+    });
+    var ndviLayer = L.tileLayer(ndviTileURL, {
+      attribution: "NDVI Data (Colormapped)",
+      opacity: 0.9,
+    });
+
+    // ---- Layer Controls ----
+    var baseMaps = {
+      "OpenStreetMap": map
+    };
+    var overlayMaps = {
+      "RGB Layer": rgbLayer,
+      "NDVI Layer": ndviLayer
+    };
+    L.control.layers(baseMaps, overlayMaps, { collapsed: false }).addTo(map);
+    rgbLayer.addTo(map);  // Display the default layer (RGB)
+
+    // Initially fetch the available days when the page loads.
+    fetchAvailableDays();
+  </script>
 </body>
 </html>
-
