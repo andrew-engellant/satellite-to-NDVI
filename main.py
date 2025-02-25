@@ -212,10 +212,7 @@ def save_raster(raster, band, scene_id, output_path):
         dtype = 'float32'
         nodata = np.nan
     
-    # Ensure the raster data type matches the expected type
-    print("NaN values before astype:", xr.ufuncs.isnan(raster).sum().values)
-    raster = raster.astype(dtype)
-    print("NaN values after astype:", xr.ufuncs.isnan(raster).sum().values)
+    raster = raster.astype(dtype) # Convert to 8-bit unsigned integer
     
     raster.rio.to_raster(
         output_file,
@@ -285,20 +282,33 @@ def rescale_band(band, scl_band=None, cloud_values=[3, 8, 9, 10, 11]):
         rioxarray.DataArray: The rescaled band as an 8-bit unsigned integer array.
     """
     if scl_band is not None:
-        # Resample the SCL band to match the resolution and grid of the target band.
+        # Resample the SCL band to match the resolution of the target band
         scl_resampled = scl_band.rio.reproject_match(band)
-        # Create a mask: True for pixels NOT matching any cloud value.
+        
+        # Create a mask: True for pixels NOT matching any cloud value
         mask = ~np.isin(scl_resampled.values, cloud_values)
-        valid_pixels = band.values[mask]
+        
+        # Apply the mask to the band
+        band_masked = band.where(mask, np.nan)
+        
+        # Extract valid pixels (non-cloud, non-shadow, etc.)
+        valid_pixels = band_masked.values[~np.isnan(band_masked.values)]
     else:
         valid_pixels = band.values
 
-    # Compute the 0.1th and 99.9th percentiles on valid (non-cloud) pixels.
+    # Compute the 0.1th and 99.9th percentiles on valid (non-cloud) pixels
     p1, p99 = np.percentile(valid_pixels, [0.1, 99.9])
-    
-    # Apply linear rescaling.
+
+    if p99 - p1 == 0:
+        raise ValueError("p99 - p1 is zero. Rescaling will produce NaN values.")
+
+    # Apply linear rescaling
     band_rescaled = (band - p1) / (p99 - p1) * 255
-    return band_rescaled.clip(0, 255).astype(np.uint8)
+    
+    # Clip values to the valid range and replace NaN with 0
+    band_rescaled = band_rescaled.clip(0, 255).where(~np.isnan(band), 0)
+    
+    return band_rescaled.astype(np.uint8)
 
 
 def combine_rgb_layers(output_path, scl_mosaic):
@@ -315,11 +325,16 @@ def combine_rgb_layers(output_path, scl_mosaic):
     green = rioxarray.open_rasterio(f"{output_path}/green_mosaic.tif", chunks={"x": 1024, "y": 1024})
     blue = rioxarray.open_rasterio(f"{output_path}/blue_mosaic.tif", chunks={"x": 1024, "y": 1024})
 
+
+    # Ensure all bands are aligned
+    red, green, blue = xr.align(red, green, blue)
+
+
     # Rescale each band to 0-255 using the provided SCL mosaic for masking.
     red = rescale_band(red, scl_mosaic)
     green = rescale_band(green, scl_mosaic)
     blue = rescale_band(blue, scl_mosaic)
-    
+
     # Stack the rescaled bands into a single multi-band raster.
     rgb_mosaic = xr.concat([red, green, blue], dim="band")
     
@@ -397,14 +412,7 @@ def process_date(date_str, geometry, geometry_utm, collection, client):
         ndvi = compute_ndvi(red_band_masked, nir_band_masked)
         ndvi = ndvi.rio.clip(geometry_utm.geometry.tolist(), crs=geometry_utm.crs)
         
-        print("NaN values after clipping:", xr.ufuncs.isnan(ndvi).sum().values)
-        print("0 values after clipping:", (ndvi == 0).sum().values)
-        
         save_raster(ndvi, 'NDVI', scene.id, output_path)
-        
-        saved_raster = rioxarray.open_rasterio(f"{output_path}/NDVI_{scene.id}.tif")
-        print("NaN values in saved raster:", xr.ufuncs.isnan(saved_raster).sum().values)
-        print("0 values in saved raster:", (saved_raster == 0).sum().values)
         
         red_band_masked.close()
         nir_band_masked.close()
@@ -445,13 +453,13 @@ def main():
     collection = "sentinel-2-l2a"
     
     # 3. Specify the target dates
-    start_date = datetime(2024, 4, 10) # April 1, 2024
-    end_date = datetime(2024, 4, 10) # May 31, 2024
+    start_date = datetime(2024, 4, 1) # April 1, 2024
+    end_date = datetime(2024, 6, 30) # June 31, 2024
     delta = timedelta(days=1)
 
     # # Include all dates from April-October 2024
     dates = [(start_date + delta * i).strftime("%Y-%m-%d") for i in range((end_date - start_date).days + 1)]
-    # dates = ['2024-04-15']
+    # dates = ['2024-06-09']
     
     # 4. Process each date
     for date_str in dates:
@@ -459,5 +467,3 @@ def main():
         
 main()
 
-# date_str = "2024-07-26"
-# output_path = "/Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/April/10"
