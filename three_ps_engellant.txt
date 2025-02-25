@@ -1,3 +1,10 @@
+2/25/25
+Progress - I made good progress this week. I finalized the main data processing pipeline and applied the processing to the entire 2024 growing season. I also 
+        added some functionality to my interactive mapping application that allows the user to change the month and day they'd like to view. 
+Problems - I spent lots of time this week debugging some issues in the main pipeline, but I have no problems to report right now.
+Plans - I've completed the visualization aspect of my mapping application, but I'd like to add some functionality that displays trend analysis across a period 
+        of time. I plan to include some descriptive charts to display the distribution of NDVI values across the geopgraphy.
+
 2/18/2025
 Progress - I included some functionality into my main code to save the RGB and NDVI raster layers to the s3 bucket and I've been in communication with my client 
         about accessing a GUI to visualize this cloud storage space.
