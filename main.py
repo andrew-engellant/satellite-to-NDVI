@@ -118,8 +118,8 @@ def get_vegetation_pixels(target_band, scl_band, clip_geometry, target_crs="EPSG
         scl_band = scl_band.rio.reproject(target_crs)
     
     # Clip both bands to the specified geometry
-    scl_band = scl_band.rio.clip(clip_geometry.geometry.tolist(), crs=target_crs)
-    target_band = target_band.rio.clip(clip_geometry.geometry.tolist(), crs=target_crs)
+    scl_band = scl_band.rio.clip(clip_geometry.geometry.tolist(), crs=target_crs, drop=False)
+    target_band = target_band.rio.clip(clip_geometry.geometry.tolist(), crs=target_crs, drop=False)
 
     # Resample SCL to match the resolution of target_band
     scl_resampled = scl_band.rio.reproject_match(target_band)
@@ -163,7 +163,7 @@ def clip_and_mask_bands(scene, geometry_utm):
 def compute_ndvi(red_band_masked, nir_band_masked):
     """
     Computes the NDVI: (NIR - Red) / (NIR + Red) for non-NaN,
-    sets result to 0 where the denominator is 0, else NaN if inputs are NaN.
+    sets result to nan where the denominator is 0, else NaN if inputs are NaN.
     
     Parameters:
     red_band_masked (rioxarray.DataArray): The masked Red band.
@@ -172,19 +172,26 @@ def compute_ndvi(red_band_masked, nir_band_masked):
     Returns:
     rioxarray.DataArray: The computed NDVI.
     """
-    ndvi = xr.where(
-        ~xr.ufuncs.isnan(nir_band_masked) & ~xr.ufuncs.isnan(red_band_masked),
-        xr.where(
-            (nir_band_masked + red_band_masked) > 0,
-            (nir_band_masked - red_band_masked) / (nir_band_masked + red_band_masked),
-            0  # Assign 0 when denominator is 0
-        ),
-        np.nan  # Assign NaN if either band is NaN
-    )
-    # Retain the CRS from the red band (arbitrary choice, as both are aligned)
-    ndvi = ndvi.rio.write_crs(red_band_masked.rio.crs)
-    return ndvi
+    # Compute the numerator and denominator separately.
+    numerator = nir_band_masked - red_band_masked
+    denominator = nir_band_masked + red_band_masked
+
+    # Use xr.where to avoid division when the denominator is zero.
+    ndvi = xr.where(denominator == 0, np.nan, numerator / denominator)
     
+    # Replace 0 values with NaN
+    ndvi = np.where(ndvi == 0, np.nan, ndvi)
+    
+    
+    # Ensure that pixels with NaNs in the original bands remain NaN.
+    ndvi = xr.where(xr.ufuncs.isnan(red_band_masked) | xr.ufuncs.isnan(nir_band_masked), 
+                    np.nan, ndvi)
+    
+    # Write the CRS from one of the bands.
+    ndvi = ndvi.rio.write_crs(red_band_masked.rio.crs)
+
+    return ndvi
+
 def save_raster(raster, band, scene_id, output_path):
     """
     Saves a RGB raster to disk as Cloud Optimized GeoTIFF.
@@ -198,15 +205,17 @@ def save_raster(raster, band, scene_id, output_path):
         output_file = f"{output_path}/RGB_{scene_id}.tif"
         photometric = 'RGB'
         dtype = 'uint8'
-        nodata = 0
+        nodata = None
     else:
         output_file = f"{output_path}/{band}_{scene_id}.tif"
         photometric = 'MINISBLACK'
         dtype = 'float32'
-        nodata = -9999
+        nodata = np.nan
     
     # Ensure the raster data type matches the expected type
+    print("NaN values before astype:", xr.ufuncs.isnan(raster).sum().values)
     raster = raster.astype(dtype)
+    print("NaN values after astype:", xr.ufuncs.isnan(raster).sum().values)
     
     raster.rio.to_raster(
         output_file,
@@ -248,14 +257,20 @@ def create_mosaic(band_name, output_path, target_crs="EPSG:32611"):
     
     # Merge the rasters
     mosaic = merge_arrays(raster_list)
-    mosaic = mosaic.compute()
+    
+
+    mosaic = mosaic.compute() # Necessary to execute dask lazy execution (in chunks of 1024x1024)
+    
+    # Convert all 0 values to NaN
+    mosaic = mosaic.where(mosaic != 0, np.nan)
     
     # Reproject the mosaic to ensure CRS consistency
     mosaic = mosaic.rio.reproject(target_crs)
     
     # Save the final mosaic
     save_raster(mosaic, band_name, "mosaic", output_path)
-
+    
+    
 def rescale_band(band, scl_band=None, cloud_values=[3, 8, 9, 10, 11]): 
     """
     Rescales a band to 0-255 for visualization, excluding cloud, snow, and shadow pixels 
@@ -381,7 +396,16 @@ def process_date(date_str, geometry, geometry_utm, collection, client):
         
         ndvi = compute_ndvi(red_band_masked, nir_band_masked)
         ndvi = ndvi.rio.clip(geometry_utm.geometry.tolist(), crs=geometry_utm.crs)
+        
+        print("NaN values after clipping:", xr.ufuncs.isnan(ndvi).sum().values)
+        print("0 values after clipping:", (ndvi == 0).sum().values)
+        
         save_raster(ndvi, 'NDVI', scene.id, output_path)
+        
+        saved_raster = rioxarray.open_rasterio(f"{output_path}/NDVI_{scene.id}.tif")
+        print("NaN values in saved raster:", xr.ufuncs.isnan(saved_raster).sum().values)
+        print("0 values in saved raster:", (saved_raster == 0).sum().values)
+        
         red_band_masked.close()
         nir_band_masked.close()
         ndvi.close()
@@ -403,9 +427,9 @@ def process_date(date_str, geometry, geometry_utm, collection, client):
     add_overviews(f"{output_path}/SCL_mosaic.tif")
     
     # Upload the RGB and NDVI mosaics to S3
-    client, BUCKET_NAME = connect_s3_client()
-    upload_image_to_s3(client, BUCKET_NAME, f"{output_path}/RGB_mosaic.tif", date_str)
-    upload_image_to_s3(client, BUCKET_NAME, f"{output_path}/NDVI_mosaic.tif", date_str)
+    # client, BUCKET_NAME = connect_s3_client()
+    # upload_image_to_s3(client, BUCKET_NAME, f"{output_path}/RGB_mosaic.tif", date_str)
+    # upload_image_to_s3(client, BUCKET_NAME, f"{output_path}/NDVI_mosaic.tif", date_str)
     
 def main():
     # 1. Set up environment & geometry
@@ -421,8 +445,8 @@ def main():
     collection = "sentinel-2-l2a"
     
     # 3. Specify the target dates
-    start_date = datetime(2024, 4, 3) # April 1, 2024
-    end_date = datetime(2024, 4, 30) # May 31, 2024
+    start_date = datetime(2024, 4, 10) # April 1, 2024
+    end_date = datetime(2024, 4, 10) # May 31, 2024
     delta = timedelta(days=1)
 
     # # Include all dates from April-October 2024
@@ -436,4 +460,4 @@ def main():
 main()
 
 # date_str = "2024-07-26"
-# output_path = "/Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/April/15"
+# output_path = "/Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/April/10"
