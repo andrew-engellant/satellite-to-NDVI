@@ -1,3 +1,10 @@
+3/4/25
+Progress - I met with my client again to better understand their needs for this project and what direction they would like me to head moving forward. They've 
+        indicated that they'd like for the application to be built using Shiny for python, rather than the FastAPI/HTML combo I've been building. I've been 
+        reading about Shiny and working on transitioning my application to this platform.
+Problems - No problems to report, I just need to spend some time familarizing myself with Shiny.
+Plans - I'll continue to work on building the Shiny application and then adding some functionality to visualize average NDVI overtime. 
+
 2/25/25
 Progress - I made good progress this week. I finalized the main data processing pipeline and applied the processing to the entire 2024 growing season. I also 
         added some functionality to my interactive mapping application that allows the user to change the month and day they'd like to view. 
