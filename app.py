@@ -75,7 +75,7 @@ with ui.layout_sidebar():
                 f"&bidx=1&bidx=2&bidx=3"
             )
             
-                        # Construct the tile URL for the RGB raster
+            # Construct the tile URL for the NDVI raster
             ndvi_tile_url = (
                 f"http://localhost:8000/cog/tiles/WebMercatorQuad/{{z}}/{{x}}/{{y}}.png?"
                 f"url=file://{BASE_DIR}/{month}/{day}/NDVI_mosaic.tif"
@@ -84,14 +84,14 @@ with ui.layout_sidebar():
                 f"&nodata=nan"
                 f"&return_mask=true"
             )
-        
+
             # Create the map
             m = Map(center=(46.8721, -113.9940), zoom=12, scroll_wheel_zoom=True)
             
             # Add OpenStreetMap base layer
             m.add_layer(basemaps.OpenStreetMap.Mapnik)
             
-            # Add RGB tile layer
+            # Add RGB tile layer - visible by default
             rgb_layer = TileLayer(
                 url=rgb_tile_url,
                 name="RGB Imagery",
@@ -99,20 +99,21 @@ with ui.layout_sidebar():
             )
             m.add_layer(rgb_layer)
             
-            # Add NDVI tile layer
+            # Add NDVI tile layer - initially invisible
             ndvi_layer = TileLayer(
                 url=ndvi_tile_url,
                 name="NDVI Imagery",
                 attribution="NDVI Imagery via TiTiler",
-                opacity=1.0
+                opacity=1.0,
+                visible=True  # Set this to False to hide the layer initially
             )
             m.add_layer(ndvi_layer)
             
             # Add layer control
-            m.add_control(LayersControl(selected_layers=['RGB Imagery']))
+            m.add_control(LayersControl(position='topright'))
             
             return m
-
+        
 # Function to get available days from the server
 def get_available_days(month):
     try:
