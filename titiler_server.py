@@ -1,3 +1,14 @@
+"""
+This script sets up a FastAPI server for serving Cloud Optimized GeoTIFF (COG) files. 
+
+Key features include:
+- A root endpoint ("/") that returns a message indicating the server is running and lists available endpoints.
+- An endpoint ("/available_days") that retrieves and returns a list of available days for specific months based on the directory structure of historic raster data stored on an external drive. The months considered are April through October.
+- The server runs on host "0.0.0.0" and port 8000, with automatic reloading enabled for development purposes.
+
+The script utilizes the `uvicorn` server to run the FastAPI application.
+"""
+
 from fastapi import FastAPI
 from titiler.core.factory import TilerFactory
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +21,7 @@ app = FastAPI()
 @app.get("/")
 def read_root():
     return {"message": "TiTiler server is running", "endpoints": ["/cog", "/available_days", "/docs"]}
+
 
 # Enable CORS for all origins (adjust as needed for production)
 app.add_middleware(
@@ -38,6 +50,7 @@ def get_available_days():
                 if os.path.isdir(os.path.join(month_path, d))
             ]
     return available_days
+
 
 if __name__ == "__main__":
     uvicorn.run("titiler_server:app", host="0.0.0.0", port=8000, reload=True)
