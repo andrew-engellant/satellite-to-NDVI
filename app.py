@@ -22,9 +22,9 @@ from scipy.signal import savgol_filter
 import pandas as pd
 import numpy as np
 import rasterio
+import pickle
 
 # TODO: Adjust layout to include scrollable page
-# TODO: Create pickle file for the NDVI histogram for each day
 
 # Base directory for your data (same as in TiTiler server)
 BASE_DIR = '/Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024'
@@ -33,13 +33,10 @@ BASE_DIR = '/Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024'
 ndvi_summary_df = pd.read_csv('/Users/drewengellant/Documents/MSBA/Spring25/capstone/satellite-to-NDVI/ndvi_data.csv')
 ndvi_summary_df['date'] = pd.to_datetime(ndvi_summary_df['date'])    # Convert date column to datetime
 
-# Add title
-ui.page_opts(title="Raster Viewer", fillable=True)
-
-# Create layout
-with ui.layout_sidebar():
+# Create layout with a sticky sidebar
+with ui.layout_sidebar(sidebar_panel_fixed=True):
     # Sidebar with controls
-    with ui.sidebar(width=300):
+    with ui.sidebar(width=200):
         ui.h4("Date Selection")
 
         ui.input_select(
@@ -59,13 +56,10 @@ with ui.layout_sidebar():
             choices=[]
         )
 
-    # Main panel with map
-    with ui.layout_columns():
-        with ui.card(height="600px"):
-            ui.card_header("Map View")
-
-            @render_widget
-            def map_widget():
+    # Main panel content
+    with ui.card(height="600px"):
+        @render_widget
+        def map_widget():
                 # Get selected month and day
                 month = input.month_select()
                 day = input.day_select()
@@ -123,67 +117,101 @@ with ui.layout_sidebar():
 
                 return m
     
-    
+    # Plots in columns layout
     with ui.layout_columns():           
         with ui.layout_columns():
             with ui.card():
                 @render.plot(alt="NDVI histogram")  
-                def plot_hist():  
+                def plot_hist():
                     month = input.month_select()
                     day = input.day_select()
-
-                    # Construct the tile URL for the NDVI raster
-                    raster_path = f"{BASE_DIR}/{month}/{day}/NDVI_mosaic.tif"
-                    with rasterio.open(raster_path) as src:
-                        ndvi_array = src.read(1)
-                        
-                        # Update histogram plotting
-                        fig, ax = plt.subplots()
-                        ax.hist(ndvi_array[~np.isnan(ndvi_array)], 25, alpha=0.5, label='NDVI Values', range=(0.2, 1))
-                        ax.set_title('Histogram of NDVI Values')
-                        ax.set_xlabel('NDVI Value')
-                        ax.set_ylabel('Frequency')
-                        
-                        # Calculate and plot the median
-                        median_ndvi = np.nanmedian(ndvi_array)
-                        ax.axvline(x=median_ndvi, color='red', linestyle='-', label=f'Median: {median_ndvi:.2f}')
-                        ax.legend()
-                        
-                        return fig
+                    
+                    # Construct the path to the pickle file
+                    pickle_path = f"{BASE_DIR}/{month}/{day}_hist.pkl"
+                    
+                    # Load the histogram data from the pickle file
+                    with open(pickle_path, 'rb') as f:
+                        histogram_data = pickle.load(f)
+                    
+                    # Create the histogram using the pre-computed data
+                    fig, ax = plt.subplots()
+                    
+                    # Plot histogram using the saved bin counts and edges
+                    ax.bar(histogram_data['bins'][:-1], 
+                        histogram_data['counts'], 
+                        width=np.diff(histogram_data['bins']), 
+                        alpha=0.5, 
+                        label='NDVI Values')
+                    
+                    ax.set_title('Histogram of NDVI Values')
+                    ax.set_xlabel('NDVI Value')
+                    ax.set_ylabel('Frequency')
+                    ax.set_ylim(0, 8000000)  # Set y-axis limits from 0 to 1 million
+                    
+                    # Plot the median line using the saved median value
+                    median_ndvi = histogram_data['median']
+                    ax.axvline(x=median_ndvi, color='red', linestyle='-', label=f'Median: {median_ndvi:.2f}')
+                    ax.legend(loc='upper left')
+                    
+                    return fig
     
             with ui.card():
                 @render.plot(alt="NDVI timeseries")  
                 def plot_timeseries(ndvi_data=ndvi_summary_df):  
                     month = input.month_select()
                     day = input.day_select()
-                    # TODO: Implement user input to highlight selected day on the plot
-
+                    
                     # Convert date column to datetime
                     ndvi_data['date'] = pd.to_datetime(ndvi_data['date'])
-
+                    
+                    # Create a date string for the selected date (assuming format like "2024-April-02")
+                    selected_date_str = f"2024-{month}-{day}"
+                    selected_date = pd.to_datetime(selected_date_str)
+                    
                     # Apply the filtering conditions
                     filtered_df = ndvi_data[(ndvi_data['cloud_cover_pct'] <= 50) & (ndvi_data['total_pixels'] >= 50000000)]
-
+                    
                     # Sort by date for proper time series plotting
                     filtered_df = filtered_df.sort_values('date')
-
+                    
                     # Apply a Savitzky-Golay filter for smoothing
                     smoothed_ndvi = savgol_filter(filtered_df['median_ndvi'], window_length=7, polyorder=3, mode='nearest')
-
-                    # Plot the original data and the smoothed trend
-                    plt.figure(figsize=(12, 6))
-                    plt.scatter(filtered_df['date'], filtered_df['median_ndvi'], marker='o', label='Raw NDVI')
-                    plt.plot(filtered_df['date'], smoothed_ndvi, linestyle='-', linewidth=2, label='Smoothed Trend', color='red')
-
+                    
+                    # Create figure with appropriate size
+                    fig, ax = plt.subplots(figsize=(12, 6))
+                    
+                    # Plot the original data
+                    ax.scatter(filtered_df['date'], filtered_df['median_ndvi'], marker='o', color='cornflowerblue', label='Raw NDVI')
+                    
+                    # Plot the smoothed trend
+                    ax.plot(filtered_df['date'], smoothed_ndvi, linestyle='-', linewidth=2, label='Smoothed Trend', color='red')
+                    
+                    # Check if the selected date is in the filtered dataframe
+                    selected_data = filtered_df[filtered_df['date'] == selected_date]
+                    
+                    if not selected_data.empty:
+                        # Highlight the selected date with a different color
+                        ax.scatter(selected_data['date'], selected_data['median_ndvi'], 
+                                marker='o', color='darkblue', s=80, zorder=5)
+                        
+                    else:
+                        # Check if the date exists in the original data but was filtered out
+                        original_selected = ndvi_data[ndvi_data['date'] == selected_date]
+                        
+                        if not original_selected.empty:
+                            # Show message that the date was excluded
+                            ax.text(0.58, 0.1, 
+                                f"Note: {month} {day} was excluded due\nto insufficient coverage or visibility.", 
+                                transform=ax.transAxes, ha='center', 
+                                bbox=dict(facecolor='lightyellow', alpha=0.5, boxstyle='round'))
+                    
                     # Formatting
-                    plt.title('Median NDVI Over Time (With Smoothing)')
-                    plt.ylabel('Median NDVI')
-                    plt.legend()
-                    plt.grid(False)
-                    plt.xticks()
-                    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%B'))
-
-                    fig = plt.gcf()
+                    ax.set_title('Median NDVI Over Time (With Smoothing)')
+                    ax.set_ylabel('Median NDVI')
+                    ax.legend()
+                    ax.grid(False)
+                    ax.xaxis.set_major_formatter(mdates.DateFormatter('%B'))
+                    
                     return fig
 
 
@@ -227,3 +255,7 @@ def update_day_dropdown():
         selected=days[0] if days else None
     )
 
+
+# TODO: Create two cards that display the vegetation health and vegetation variation as caterogries of low, med, high, very high
+
+# TODO: Look into difficulty of adding an automation to loop through days
