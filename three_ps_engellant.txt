@@ -1,3 +1,10 @@
+3/11/25
+Progress - I've transitioned my application to run using Shiny. I've also included some dynamic visualizations that display the distribution of vegitation
+        health for a given day and the overall trend of vegitation health across the 2024 season. 
+Problems - No problems to report right now.
+Plans - I want to add two cards that display help visualize vegetation health status of the area and then look into adding an automation function to play
+        through a series of days. I'll wrap this up by end of week and then work on my written product.
+
 3/4/25
 Progress - I met with my client again to better understand their needs for this project and what direction they would like me to head moving forward. They've 
         indicated that they'd like for the application to be built using Shiny for python, rather than the FastAPI/HTML combo I've been building. I've been 
