@@ -19,21 +19,21 @@ The script is designed to handle multiple dates and can be easily modified
 to process different geographic areas or time frames.
 """
 
-import os
 import glob
-import datetime as dt
-from datetime import datetime, timedelta
+import os
+from datetime import datetime as dt, timedelta
 
-import numpy as np
-import xarray as xr
-import rioxarray
 import geopandas as gpd
+import numpy as np
 import rasterio
-from rasterio.enums import Resampling
+import rioxarray
+import xarray as xr
 from pystac_client import Client
+from rasterio.enums import Resampling
 from rioxarray.merge import merge_arrays
 
 from upload_to_DO import connect_s3_client, upload_image_to_s3
+
 
 # ------------------------------------------------------------------------------
 # 1. Environment and Geometry Setup
@@ -57,7 +57,7 @@ def load_county_geometry(fips_code):
 
     Returns:
     geopandas.GeoDataFrame: A GeoDataFrame containing the combined geometry of the specified county.
-
+    
     """
 
     # Load mso county TIGER shapefile
@@ -520,23 +520,56 @@ main()
 # # date_str = "2024-07-26"
 # output_path = "/Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/April/17"
 
-# base_dir = "/Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024"
+base_dir = "/Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024"
 
-# for month in os.listdir(base_dir):
-#     if month == ".DS_Store" or month == "April" or month == "July" or month == "June":
-#         continue
-#     else:
-#         print("working on month:", month)
-#         for day in os.listdir(f"{base_dir}/{month}"):
-#             if day == ".DS_Store":
-#                 continue
-#             else:
-#                 output_path = f"{base_dir}/{month}/{day}"
-#                 scl_mosaic = rioxarray.open_rasterio(f"{output_path}/SCL_mosaic.tif", chunks={"x": 1024, "y": 1024})
-#                 combine_rgb_layers(output_path, scl_mosaic)
-#                 add_overviews(f"{output_path}/RGB_mosaic.tif")
-# # date_str = "2024-07-26"
-# output_path = "/Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/April/17"
+import pickle
+import numpy as np
+import os
+import rasterio
+from pathlib import Path
+
+for month in os.listdir(base_dir):
+    if month == ".DS_Store":
+        continue
+    else:
+        print("working on month:", month)
+        for day in os.listdir(f"{base_dir}/{month}"):
+            if day == ".DS_Store":
+                continue
+            else:
+                output_path = f"{base_dir}/{month}/{day}"
+                with rasterio.open(f"{output_path}/NDVI_mosaic.tif") as src:
+                    ndvi_data = src.read(1)
+                    valid_data = ndvi_data[~np.isnan(ndvi_data)]
+                    
+                    # Create histogram data
+                    hist_range = (0.2, 1)
+                    hist_bins = 25
+                    hist_counts, hist_bins = np.histogram(valid_data, bins=hist_bins, range=hist_range)
+                    
+                    # Calculate median
+                    median_ndvi = np.nanmedian(ndvi_data)
+                    mean_ndvi = np.nanmean(ndvi_data)
+                    
+                    # Package histogram data and statistics
+                    histogram_data = {
+                        'counts': hist_counts,
+                        'bins': hist_bins,
+                        'median': median_ndvi,
+                        'mean': mean_ndvi,
+                        'date': f"{month}-{day}"
+                    }
+                    
+                    # Save histogram data to pickle file
+                    pickle_filename = f"{output_path}_hist.pkl"
+                    with open(pickle_filename, 'wb') as f:
+                        pickle.dump(histogram_data, f)
+                    
+                    print(f"Saved histogram data to {pickle_filename}")
+                    
+                    
+# date_str = "2024-07-26"
+output_path = "/Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024/April/17"
 
 # base_dir = "/Volumes/Drew_ext_drive/NDVI_Proj/historic_rasters/2024"
 
