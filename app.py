@@ -46,6 +46,7 @@ ui.tags.style("""
         font-weight: 500;
     }
 """)
+
 # Create the navigation panels
 with ui.navset_card_tab():
     with ui.nav_panel("Satellite Explorer"):
@@ -364,7 +365,276 @@ with ui.navset_card_tab():
                             ax.spines['bottom'].set_visible(False)
                             
                             return fig
+ 
+   
+    with ui.nav_panel("About"):
+        with ui.layout_sidebar(sidebar_width=300):
+            # Sidebar with controls for demo purposes
+            with ui.sidebar():
+                ui.h4("Demonstration Controls")
+                
+                ui.input_select(
+                    "about_use_case",
+                    "Example Use Case:",
+                    choices={
+                        "agriculture": "Agricultural Monitoring",
+                        "forestry": "Forest Management",
+                        "urban": "Urban Green Space",
+                        "conservation": "Conservation Area"
+                    },
+                    selected="agriculture"
+                )
+                
+                ui.input_select(
+                    "about_scale_slider",
+                    "Scale of Analysis:",
+                    choices={
+                        "1": "Field",
+                        "2": "Farm/Stand",
+                        "3": "Watershed/Regional",
+                        "4": "County"
+                    },
+                    selected="2"
+                )
+                
+                ui.hr()
+                
+                ui.h4("Learn More")
+                ui.a("NDVI Explained", href="https://earthobservatory.nasa.gov/features/MeasuringVegetation", target="_blank")
+                ui.br()
+                ui.a("Sentinel-2 Satellite", href="https://sentinel.esa.int/web/sentinel/missions/sentinel-2", target="_blank")
+                ui.br()
+                ui.a("Contact Us", href="mailto:andrew.engellant@umontana.edu")
+
+            # Main content
+            with ui.card(fill=False):
+                ui.h1("About the Vegetation Health Monitoring Tool")
+                
+                ui.h2("Understanding This Tool")
+                
+                ui.p("""
+                    Welcome to the Vegetation Health Monitoring Tool, a powerful web application designed to transform complex satellite 
+                    imagery into accessible vegetation health insights. This tool was developed as part of a capstone project at the 
+                    University of Montana's Master of Science in Business Analytics program to demonstrate how satellite data can be 
+                    made accessible and actionable for land management professionals, agricultural consultants, and environmental researchers.
+                """)
+                
+                ui.p("""
+                    While this demonstration focuses on Missoula County, the technology behind it is designed to be adaptable 
+                    for monitoring specific parcels of land, farms, forests, or watersheds according to your needs.
+                """)
+            
+            # Interactive example section
+            with ui.card(fill=False):
+                @render.ui
+                def example_content():
+                    use_case = input.about_use_case()
+                    scale = int(input.about_scale_slider())
                     
+                    use_case_content = {
+                        "agriculture": {
+                            "title": "Agricultural Monitoring",
+                            "description": f"""
+                                For agricultural consultants and farmers, this tool provides critical insights into crop health and 
+                                development across {'individual fields' if scale == 1 else 'entire farms' if scale == 2 else 'regional growing areas' if scale == 3 else 'county-wide agricultural lands'}. 
+                                The vegetation index (NDVI) highlights areas of crop stress before they become visible to the naked eye, 
+                                enabling timely intervention.
+                            """,
+                            "example": f"""
+                                Example: A consultant monitors a {'wheat field' if scale <= 2 else 'farming region'} and notices reduced NDVI 
+                                values in the northeastern section. This early detection of irrigation issues allows for targeted 
+                                intervention, potentially saving the crop before visible symptoms appear.
+                            """
+                        },
+                        "forestry": {
+                            "title": "Forest Management",
+                            "description": f"""
+                                Forestry professionals can use this tool to monitor {'specific forest stands' if scale <= 2 else 'large forested regions' if scale == 3 else 'county-wide forest resources'}.
+                                The temporal analysis capabilities help detect early signs of disease, pest infestations, or drought stress,
+                                and track recovery after wildfires or logging operations.
+                            """,
+                            "example": f"""
+                                Example: A forest manager monitors a {'recently thinned stand' if scale <= 2 else 'watershed after a controlled burn' if scale == 3 else 'post-wildfire recovery across multiple districts'}.
+                                By tracking NDVI values over time, they can quantify vegetation recovery rates and adjust management 
+                                strategies accordingly.
+                            """
+                        },
+                        "urban": {
+                            "title": "Urban Green Space Management",
+                            "description": f"""
+                                Urban planners and park managers can use this tool to assess green infrastructure across 
+                                {'individual parks' if scale == 1 else 'neighborhoods' if scale == 2 else 'entire cities' if scale == 3 else 'multiple municipalities'}.
+                                The vegetation abundance metrics help quantify green coverage and identify areas that may benefit from 
+                                additional planting or maintenance.
+                            """,
+                            "example": f"""
+                                Example: A city planner evaluates the effectiveness of a {'park renovation project' if scale <= 2 else 'city-wide green infrastructure initiative' if scale == 3 else 'regional urban forest conservation plan'}.
+                                By comparing NDVI values before and after implementation, they can document improvements in vegetation health
+                                and justify continued funding.
+                            """
+                        },
+                        "conservation": {
+                            "title": "Conservation Area Monitoring",
+                            "description": f"""
+                                Conservation organizations can leverage this tool to track the health of protected natural areas ranging from
+                                {'specific habitat restoration sites' if scale <= 2 else 'entire watersheds' if scale == 3 else 'county-wide conservation lands'}.
+                                The time-series analysis helps document seasonal patterns and long-term trends in vegetation health.
+                            """,
+                            "example": f"""
+                                Example: A watershed protection group monitors a {'wetland restoration project' if scale <= 2 else 'river corridor restoration' if scale == 3 else 'landscape-scale conservation initiative'}.
+                                The increasing NDVI values and vegetation abundance percentages provide objective evidence of 
+                                ecological recovery for grant reporting and future funding requests.
+                            """
+                        }
+                    }
+                    
+                    content = use_case_content[use_case]
+                    
+                    return ui.div(
+                        ui.h3(content["title"] + f" at {['Field', 'Farm/Stand', 'Watershed/Regional', 'County'][scale-1]} Scale"),
+                        ui.p(content["description"]),
+                        ui.p(content["example"], style="font-style: italic;"),
+                        ui.p("Try changing the use case and scale in the sidebar to see how this tool can be adapted for different applications.")
+                    )
+            with ui.card(fill=False):
+                ui.h2("How to Use This Tool")
+                
+                ui.p("""
+                    The Vegetation Health Monitoring Tool features two main interfaces: the Satellite Explorer and the Analytics dashboard. 
+                    Here's how to make the most of each:
+                """)
+                
+                with ui.layout_columns(col_widths=[6, 6]):
+                    with ui.card(fill=False):
+                        ui.h3("Satellite Explorer")
+                        ui.p("""
+                            The Satellite Explorer tab allows you to visually examine satellite imagery of the landscape and its corresponding 
+                            vegetation health representation.
+                        """)
+                        
+                        ui.h4("Key Features:")
+                        with ui.tags.ul():
+                            ui.tags.li("Select specific dates using the month and day dropdown menus")
+                            ui.tags.li("Pan and zoom the map to explore different areas")
+                            ui.tags.li("Toggle between layers to compare true-color imagery and vegetation health visualization")
+                            ui.tags.li("View key metrics in the status boxes above the map")
+                        
+                        ui.h4("Understanding the Health Indicators:")
+                        ui.p("""
+                            The status boxes provide at-a-glance information about vegetation conditions on the selected date:
+                        """)
+                        with ui.tags.ul():
+                            ui.tags.li("Vegetation Health Status: Categorizes the overall vegetation vigor")
+                            ui.tags.li("Vegetation Health Variability: Indicates how uniform the vegetation health is across the landscape")
+                            ui.tags.li("Cloud Coverage: Shows the percentage of the area obscured by clouds, which affects data quality")
+                    
+                    with ui.card(fill=False):
+                        ui.h3("Analytics")
+                        ui.p("""
+                            The Analytics tab provides more detailed information about vegetation health patterns and trends.
+                        """)
+                        
+                        ui.h4("Key Features:")
+                        with ui.tags.ul():
+                            ui.tags.li("Histogram showing the distribution of vegetation health values across the landscape")
+                            ui.tags.li("Time-series charts tracking vegetation health and abundance throughout the growing season")
+                            ui.tags.li("Selected date highlighted on the time-series for context")
+                            ui.tags.li("Smoothed trend lines revealing seasonal patterns")
+                        
+                        ui.h4("Reading the Charts:")
+                        ui.p("""
+                            The time-series charts filter out low-quality observations (high cloud cover or incomplete coverage)
+                            to ensure reliable trend analysis. The smoothed red line helps identify the seasonal pattern beyond 
+                            day-to-day variations.
+                        """)
+                        ui.p("""
+                            A selected date that doesn't appear on the time-series indicates it was excluded due to quality issues,
+                            which will be noted on the chart.
+                        """)
+            
+            with ui.card(fill=False):
+                ui.h2("Beyond the Demo: Customization Potential")
+                
+                ui.p("""
+                    This website demonstrates the overall capabilities of the Vegetation Health Monitoring Tool using Missoula County 
+                    as an example. However, the underlying technology was intentionally designed for flexibility and customization.
+                """)
+                
+                ui.p("""
+                    The data pipeline can be easily adjusted to:
+                """)
+                
+                with ui.tags.ul():
+                    ui.tags.li(
+                        ui.tags.b("Focus on specific properties:"),
+                        """ By changing a single variable, the system can be reconfigured to monitor 
+                        a private farm, forest stand, or conservation area instead of an entire county
+                        """
+                    )
+                    
+                    ui.tags.li(
+                        ui.tags.b("Adjust the time range:"),
+                        " The date range can span a decade of historical data or focus on real-time monitoring, depending on your needs"
+                    )
+                    
+                    ui.tags.li(
+                        ui.tags.b("Add specialized metrics:"),
+                        """ While this demo uses NDVI (Normalized Difference Vegetation Index) 
+                        as a standard vegetation health measure, the modular pipeline design allows for easy addition of specialized 
+                        indices for specific vegetation types, moisture monitoring, or crop classification
+                        """
+                    )
+                
+                ui.p("""
+                    For ethical reasons, this demonstration was restricted to publicly available data covering an entire county rather than 
+                    focusing on private property without consent. However, agricultural consultants, forestry managers, or conservation organizations 
+                    can implement this technology for detailed analysis of specific lands with proper authorization.
+                """)
+                
+                ui.h2("Technical Foundation")
+                
+                ui.p("""
+                    While you don't need to understand the technical details to use this tool effectively, it may be helpful to know that it's built on:
+                """)
+                
+                with ui.tags.ul():
+                    ui.tags.li("European Space Agency's Sentinel-2 satellite imagery with 10-meter resolution")
+                    ui.tags.li("Automated cloud detection and masking to ensure data quality")
+                    ui.tags.li("Statistical analysis that filters out poor quality observations")
+                    ui.tags.li("Temporal smoothing to reveal underlying patterns despite day-to-day variability")
+                
+                ui.p("""
+                    The satellite revisits each area approximately every 3-5 days, providing frequent updates during the growing season. 
+                    However, cloud coverage or technical issues may result in gaps in the available dates.
+                """)
+                
+                ui.h2("Future Applications")
+                
+                ui.p("""
+                    This demonstration represents just the beginning of what's possible with satellite-based vegetation monitoring. 
+                    Future enhancements could include:
+                """)
+                
+                with ui.tags.ul():
+                    ui.tags.li("Integration of weather data to correlate vegetation patterns with precipitation and temperature")
+                    ui.tags.li("Machine learning models for crop classification or invasive species detection")
+                    ui.tags.li("Automated alerting when vegetation health falls below defined thresholds")
+                    ui.tags.li("Predictive analytics to forecast seasonal patterns based on historical data")
+                    ui.tags.li("Higher resolution imagery for monitoring smaller parcels or specialized crops")
+                
+                ui.p("""
+                    By making powerful remote sensing technology accessible to non-technical users, tools like this help bridge the gap 
+                    between advanced earth observation capabilities and practical land management decision-making.
+                """)
+                
+                ui.hr()
+                
+                ui.p("""
+                    This tool was developed by Andrew Engellant as a capstone project for the Master of Science in Business Analytics 
+                    program at the University of Montana, completed in March 2025.
+                """, style="font-style: italic;")
+            
+                                     
 # Function to get available days from the server
 def get_available_days(month):
     try:
