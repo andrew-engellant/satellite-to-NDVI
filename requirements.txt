@@ -1,0 +1,48 @@
+affine @ file:///home/conda/feedstock_root/build_artifacts/affine_1733762038348/work
+attrs @ file:///home/conda/feedstock_root/build_artifacts/attrs_1737819173731/work
+boto3==1.36.14
+botocore==1.36.14
+certifi @ file:///home/conda/feedstock_root/build_artifacts/certifi_1734380492396/work/certifi
+charset-normalizer==3.4.1
+click @ file:///home/conda/feedstock_root/build_artifacts/click_1734858813237/work
+click-plugins @ file:///home/conda/feedstock_root/build_artifacts/click-plugins_1733731077999/work
+cligj @ file:///home/conda/feedstock_root/build_artifacts/cligj_1733749956636/work
+cloudpickle==3.1.1
+dask==2025.1.0
+fsspec==2025.2.0
+geopandas==1.0.1
+idna==3.10
+importlib_metadata==8.6.1
+jmespath==1.0.1
+jsonschema==4.23.0
+jsonschema-specifications==2024.10.1
+locket==1.0.0
+numpy @ file:///Users/runner/miniforge3/conda-bld/numpy_1737331094678/work/dist/numpy-2.2.2-cp310-cp310-macosx_10_13_x86_64.whl#sha256=3958c90152a6fc8fe56ca663e41be49c77ed7f620c70baf8f66cf945af123777
+packaging @ file:///home/conda/feedstock_root/build_artifacts/packaging_1733203243479/work
+pandas @ file:///Users/runner/miniforge3/conda-bld/pandas_1715897681148/work
+partd==1.4.2
+pyogrio==0.10.0
+pyparsing @ file:///home/conda/feedstock_root/build_artifacts/pyparsing_1735698276679/work
+pyproj @ file:///Users/runner/miniforge3/conda-bld/pyproj_1727795263367/work
+pystac==1.12.1
+pystac-client==0.8.5
+python-dateutil @ file:///home/conda/feedstock_root/build_artifacts/python-dateutil_1733215673016/work
+python-dotenv==1.0.1
+pytz @ file:///home/conda/feedstock_root/build_artifacts/pytz_1738317518727/work
+PyYAML==6.0.2
+rasterio @ file:///Users/runner/miniforge3/conda-bld/rasterio_1733163496255/work
+referencing==0.36.2
+requests==2.32.3
+rioxarray @ file:///home/conda/feedstock_root/build_artifacts/rioxarray_1737141095682/work
+rpds-py==0.22.3
+s3transfer==0.11.2
+scipy @ file:///Users/runner/miniforge3/conda-bld/scipy-split_1736617249100/work/dist/scipy-1.15.1-cp310-cp310-macosx_10_13_x86_64.whl#sha256=95a43caa3c7c4d1b65816729833e7a54dad89cf277fe7c02647fdf8e37926fa9
+shapely==2.0.7
+six @ file:///home/conda/feedstock_root/build_artifacts/six_1733380938961/work
+snuggs @ file:///home/conda/feedstock_root/build_artifacts/snuggs_1733818638588/work
+toolz==1.0.0
+typing_extensions==4.12.2
+tzdata @ file:///home/conda/feedstock_root/build_artifacts/python-tzdata_1737541069190/work
+urllib3==2.3.0
+xarray @ file:///home/conda/feedstock_root/build_artifacts/xarray_1738313659268/work
+zipp==3.21.0
