@@ -1,3 +1,9 @@
+4/8/25
+Progress - I add and revised my digital product which is the 'About' tab of the web application, and I incorporated the suggested revisions for my written product.
+Problems - We discussed issues around sharing my digital product with Jason's class, but after meeting with Jason, we have agreed that I will share screenshots of 
+        my product and then give a live demonstration of my product when his class interviews me in the following period.
+Plans - I will continue to update my written and digital products as well as review the written products of the memebers in my group. 
+
 3/25/25
 Progress - I improved the formatting of the Shiny application and refined the dynamic visualizations. I also completed the first draft of my written product.
 Problems - No problems to report.
