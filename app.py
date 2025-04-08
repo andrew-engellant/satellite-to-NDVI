@@ -374,7 +374,7 @@ with ui.navset_card_tab():
                             # Formatting
                             ax.set_title('Vegatation Abundance Over Time')
                             ax.set_ylabel(
-                                'Percent Coverage of Missoula County')
+                                "Vegetation Coverage (Percent of MSO County)")
                             ax.legend(loc='upper left')
                             ax.grid(False)
                             ax.xaxis.set_major_formatter(
@@ -411,9 +411,9 @@ with ui.navset_card_tab():
                     "Scale of Analysis:",
                     choices={
                         "1": "Field",
-                        "2": "Farm/Stand",
-                        "3": "Watershed/Regional",
-                        "4": "County"
+                        "2": "Farm",
+                        "3": "Small Region",
+                        "4": "Whole County"
                     },
                     selected="2"
                 )
