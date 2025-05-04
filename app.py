@@ -146,6 +146,9 @@ with ui.navset_card_tab():
 
                     return m
 
+                ui.p("Note: The NDVI layer can be used to visualize the health of the vegetation. Darker green pixels represent dense healthy vegetation, while more yellow and orange pixels represent unhealthy or dead vegetation.")
+
+
     with ui.nav_panel("Analytics"):
         # Create layout with a sticky sidebar
         with ui.layout_sidebar(sidebar_panel_fixed=False):
@@ -676,7 +679,7 @@ with ui.navset_card_tab():
 
                 ui.p("""
                     This tool was developed by Andrew Engellant as a capstone project for the Master of Science in Business Analytics 
-                    program at the University of Montana, completed in March 2025.
+                    program at the University of Montana, completed in April 2025.
                 """, style="font-style: italic;")
 
 
